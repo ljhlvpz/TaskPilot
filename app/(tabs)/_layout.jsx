@@ -1,7 +1,9 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
+
 export default function TabsLayout() {
+  
   return (
     <Tabs
       screenOptions={{
@@ -41,9 +43,13 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="assistant"
         options={{
-          title: "AI",
+          title: "AI Assistant",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="sparkles" size={size} color={color} />
+            <Ionicons
+              name="sparkles-outline"
+              size={size}
+              color={color}
+            />
           ),
         }}
       />
