@@ -1,3 +1,4 @@
+import { getFunctions } from "firebase/functions";
 // Firebase Core
 import { initializeApp } from "firebase/app";
 
@@ -35,6 +36,7 @@ try {
 }
 
 const db = getFirestore(app);
+const functions = getFunctions(app);
 
-export { auth, db };
+export { auth, db, functions };
 export default app;

@@ -1,5 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRef, useState } from "react";
+import {
+    useEffect,
+    useRef,
+    useState,
+} from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -14,6 +18,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Theme } from "../../constants/theme";
+import { useAuth } from "../../hooks/useAuth";
+import {
+    addUserTask,
+    listenToUserTasks,
+} from "../../services/taskService";
 
 const QUICK_ACTIONS = [
     {
@@ -71,13 +80,287 @@ const createMessageId = () => {
         .slice(2, 8)}`;
 };
 
+const getTodayDate = () => {
+    const today = new Date();
+
+    const year = today.getFullYear();
+    const month = String(
+        today.getMonth() + 1
+    ).padStart(2, "0");
+
+    const day = String(
+        today.getDate()
+    ).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+};
+
+const formatTaskLine = (task) => {
+    const priority =
+        task.priority?.toUpperCase() || "MEDIUM";
+
+    const time = task.dueTime
+        ? ` at ${task.dueTime}`
+        : "";
+
+    return `• ${task.title}${time} — ${priority}`;
+};
+const getDateKey = (date) => {
+    const year = date.getFullYear();
+    const month = String(
+        date.getMonth() + 1
+    ).padStart(2, "0");
+
+    const day = String(
+        date.getDate()
+    ).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+};
+
+const getTomorrowDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    return getDateKey(tomorrow);
+};
+
+const sortTasksByPriority = (tasks) => {
+    const priorityOrder = {
+        high: 0,
+        medium: 1,
+        low: 2,
+    };
+
+    return [...tasks].sort((a, b) => {
+        return (
+            (priorityOrder[a.priority] ?? 3) -
+            (priorityOrder[b.priority] ?? 3)
+        );
+    });
+};
+const getNextWeekdayDate = (weekdayName, forceNextWeek = false) => {
+    const weekdays = {
+        sunday: 0,
+        monday: 1,
+        tuesday: 2,
+        wednesday: 3,
+        thursday: 4,
+        friday: 5,
+        saturday: 6,
+    };
+
+    const targetDay =
+        weekdays[weekdayName.toLowerCase()];
+
+    if (targetDay === undefined) {
+        return null;
+    }
+
+    const today = new Date();
+    const currentDay = today.getDay();
+
+    let daysAhead =
+        (targetDay - currentDay + 7) % 7;
+
+    if (daysAhead === 0 || forceNextWeek) {
+        daysAhead += 7;
+    }
+
+    const targetDate = new Date(today);
+    targetDate.setDate(
+        today.getDate() + daysAhead
+    );
+
+    return getDateKey(targetDate);
+};
+const parseCreateTaskCommand = (message) => {
+    const original = message.trim();
+    const lower = original.toLowerCase();
+
+    const startsWithCreateCommand =
+        lower.startsWith("add ") ||
+        lower.startsWith("create ") ||
+        lower.startsWith("make ");
+
+    if (!startsWithCreateCommand) {
+        return null;
+    }
+
+    let workingText = original.replace(
+        /^(add|create|make)\s+/i,
+        ""
+    );
+
+    // Remove optional words such as "a task" or "task".
+    workingText = workingText.replace(
+        /^(a\s+)?task\s+/i,
+        ""
+    );
+
+    let dueDate = null;
+    let dueTime = null;
+    let priority = "medium";
+
+    // TODAY
+    if (/\btoday\b/i.test(workingText)) {
+        dueDate = getTodayDate();
+
+        workingText = workingText.replace(
+            /\btoday\b/i,
+            ""
+        );
+    }
+
+    // TOMORROW
+    if (/\btomorrow\b/i.test(workingText)) {
+        dueDate = getTomorrowDate();
+
+        workingText = workingText.replace(
+            /\btomorrow\b/i,
+            ""
+        );
+    }
+    const weekdayMatch = workingText.match(
+        /\b(next\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i
+    );
+
+    if (weekdayMatch) {
+        const hasNext =
+            Boolean(weekdayMatch[1]);
+
+        const weekday =
+            weekdayMatch[2];
+
+        dueDate = getNextWeekdayDate(
+            weekday,
+            hasNext
+        );
+
+        workingText = workingText.replace(
+            weekdayMatch[0],
+            ""
+        );
+    }
+    // PRIORITY
+    const priorityMatch = workingText.match(
+        /\b(high|medium|low)(?:\s+priority)?\b/i
+    );
+
+    if (priorityMatch) {
+        priority = priorityMatch[1].toLowerCase();
+
+        workingText = workingText.replace(
+            priorityMatch[0],
+            ""
+        );
+    }
+
+    // TIME: "at 7 PM", "at 7:30 PM", "at 14:00"
+    const timeMatch = workingText.match(
+        /\bat\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i
+    );
+
+    if (timeMatch) {
+        let hour = Number(timeMatch[1]);
+        const minute = Number(
+            timeMatch[2] || "0"
+        );
+
+        const meridiem =
+            timeMatch[3]?.toLowerCase();
+
+        if (
+            hour <= 23 &&
+            minute <= 59
+        ) {
+            if (meridiem === "pm" && hour < 12) {
+                hour += 12;
+            }
+
+            if (meridiem === "am" && hour === 12) {
+                hour = 0;
+            }
+
+            dueTime =
+                `${String(hour).padStart(2, "0")}:` +
+                `${String(minute).padStart(2, "0")}`;
+
+            workingText = workingText.replace(
+                timeMatch[0],
+                ""
+            );
+        }
+    }
+
+    // Remove leftover connector words.
+    workingText = workingText
+        .replace(/\b(for|on)\s*$/i, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    if (!workingText) {
+        return null;
+    }
+
+    return {
+        title: workingText,
+        description: "",
+        category: "Personal",
+        priority,
+        dueDate,
+        dueTime,
+    };
+};
+
 export default function AssistantScreen() {
     const listRef = useRef(null);
 
+    const { user, authLoading } = useAuth();
+
+    const [tasks, setTasks] = useState([]);
+    const [tasksLoading, setTasksLoading] =
+        useState(true);
+
     const [messages, setMessages] =
         useState(INITIAL_MESSAGES);
+
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
+    const [pendingTask, setPendingTask] =
+        useState(null);
+
+    useEffect(() => {
+        if (authLoading) {
+            return undefined;
+        }
+
+        if (!user?.uid) {
+            setTasks([]);
+            setTasksLoading(false);
+            return undefined;
+        }
+
+        setTasksLoading(true);
+
+        const unsubscribe = listenToUserTasks(
+            user.uid,
+            (receivedTasks) => {
+                setTasks(receivedTasks);
+                setTasksLoading(false);
+            },
+            (error) => {
+                console.error(
+                    "AI task listener error:",
+                    error
+                );
+
+                setTasksLoading(false);
+            }
+        );
+
+        return unsubscribe;
+    }, [user?.uid, authLoading]);
 
     const scrollToBottom = () => {
         setTimeout(() => {
@@ -86,11 +369,231 @@ export default function AssistantScreen() {
             });
         }, 100);
     };
-
     const generateTemporaryResponse = (message) => {
+        if (tasksLoading) {
+            return "I'm still loading your tasks. Please try again in a moment.";
+        }
+
+        const normalizedMessage =
+            message.toLowerCase().trim();
+
+        const today = getTodayDate();
+        const tomorrow = getTomorrowDate();
+
+        const pendingTasks = tasks.filter(
+            (task) => !task.completed
+        );
+
+        const completedTasks = tasks.filter(
+            (task) => task.completed
+        );
+
+        const todayTasks = pendingTasks.filter(
+            (task) => task.dueDate === today
+        );
+
+        const tomorrowTasks = pendingTasks.filter(
+            (task) => task.dueDate === tomorrow
+        );
+
+        const overdueTasks = pendingTasks.filter(
+            (task) =>
+                task.dueDate &&
+                task.dueDate < today
+        );
+
+        const highPriorityTasks = pendingTasks.filter(
+            (task) =>
+                task.priority?.toLowerCase() === "high"
+        );
+
+        const sortedPending =
+            sortTasksByPriority(pendingTasks);
+
+        // TODAY
+        if (
+            normalizedMessage.includes("today") ||
+            normalizedMessage.includes("today's summary")
+        ) {
+            if (todayTasks.length === 0) {
+                return (
+                    `You don't have any pending tasks due today. 🎉\n\n` +
+                    `You still have ${pendingTasks.length} pending tasks overall.`
+                );
+            }
+
+            const taskList = sortTasksByPriority(todayTasks)
+                .map(formatTaskLine)
+                .join("\n");
+
+            return (
+                `You have ${todayTasks.length} ` +
+                `${todayTasks.length === 1 ? "task" : "tasks"} due today:\n\n` +
+                `${taskList}`
+            );
+        }
+
+        // TOMORROW
+        if (
+            normalizedMessage.includes("tomorrow")
+        ) {
+            if (tomorrowTasks.length === 0) {
+                return "You don't have any pending tasks due tomorrow.";
+            }
+
+            const taskList = sortTasksByPriority(
+                tomorrowTasks
+            )
+                .map(formatTaskLine)
+                .join("\n");
+
+            return (
+                `You have ${tomorrowTasks.length} ` +
+                `${tomorrowTasks.length === 1 ? "task" : "tasks"} due tomorrow:\n\n` +
+                taskList
+            );
+        }
+
+        // OVERDUE
+        if (
+            normalizedMessage.includes("overdue") ||
+            normalizedMessage.includes("late")
+        ) {
+            if (overdueTasks.length === 0) {
+                return "Good news — you don't have any overdue tasks. 🎉";
+            }
+
+            const taskList = sortTasksByPriority(
+                overdueTasks
+            )
+                .map(formatTaskLine)
+                .join("\n");
+
+            return (
+                `You currently have ${overdueTasks.length} overdue ` +
+                `${overdueTasks.length === 1 ? "task" : "tasks"}:\n\n` +
+                taskList
+            );
+        }
+
+        // PRIORITY / WHAT SHOULD I DO FIRST
+        if (
+            normalizedMessage.includes("prioritize") ||
+            normalizedMessage.includes("priority") ||
+            normalizedMessage.includes("do first") ||
+            normalizedMessage.includes("start first") ||
+            normalizedMessage.includes("what should i do")
+        ) {
+            if (pendingTasks.length === 0) {
+                return "You have no pending tasks right now. Nice work! 🎉";
+            }
+
+            const recommendedTasks =
+                highPriorityTasks.length > 0
+                    ? sortTasksByPriority(
+                        highPriorityTasks
+                    )
+                    : sortedPending;
+
+            const taskList = recommendedTasks
+                .slice(0, 5)
+                .map(formatTaskLine)
+                .join("\n");
+
+            if (highPriorityTasks.length > 0) {
+                return (
+                    `I recommend starting with your high-priority tasks:\n\n` +
+                    taskList
+                );
+            }
+
+            return (
+                `You currently have no high-priority tasks. ` +
+                `Here are some pending tasks you can work on:\n\n` +
+                taskList
+            );
+        }
+
+        // PLAN MY DAY
+        if (
+            normalizedMessage.includes("plan my day") ||
+            normalizedMessage.includes("plan today") ||
+            normalizedMessage.includes("organize my day")
+        ) {
+            if (todayTasks.length === 0) {
+                if (pendingTasks.length === 0) {
+                    return "You have no pending tasks. Enjoy the extra breathing room today! 🎉";
+                }
+
+                const suggestions = sortedPending
+                    .slice(0, 3)
+                    .map(
+                        (task, index) =>
+                            `${index + 1}. ${task.title} (${task.priority || "medium"})`
+                    )
+                    .join("\n");
+
+                return (
+                    `You don't have tasks due today, so you could work ahead:\n\n` +
+                    suggestions
+                );
+            }
+
+            const plan = sortTasksByPriority(
+                todayTasks
+            )
+                .map(
+                    (task, index) =>
+                        `${index + 1}. ${task.title}${task.dueTime
+                            ? ` — ${task.dueTime}`
+                            : ""
+                        } (${task.priority || "medium"})`
+                )
+                .join("\n");
+
+            return (
+                `Here's a simple plan for today:\n\n` +
+                `${plan}\n\n` +
+                `Start with the highest-priority task first.`
+            );
+        }
+
+        // TASK COUNTS
+        if (
+            normalizedMessage.includes("how many") ||
+            normalizedMessage.includes("task count") ||
+            normalizedMessage.includes("tasks left")
+        ) {
+            return (
+                `You currently have:\n\n` +
+                `• ${pendingTasks.length} pending\n` +
+                `• ${completedTasks.length} completed\n` +
+                `• ${highPriorityTasks.length} high-priority\n` +
+                `• ${overdueTasks.length} overdue`
+            );
+        }
+
+        // PRODUCTIVITY TIPS
+        if (
+            normalizedMessage.includes("productivity") ||
+            normalizedMessage.includes("tip")
+        ) {
+            return (
+                "Try focusing on one important task for 25 minutes without switching apps. " +
+                "Then take a short break before continuing."
+            );
+        }
+
+        // FALLBACK
         return (
-            SAMPLE_RESPONSES[message] ||
-            "I received your message. My Gemini connection will be added next, so I will soon be able to provide a smarter and more personalized answer."
+            `I can currently see ${tasks.length} tasks in your TaskPilot account: ` +
+            `${pendingTasks.length} pending and ${completedTasks.length} completed.\n\n` +
+            `Try asking me things like:\n` +
+            `• What do I have today?\n` +
+            `• What's due tomorrow?\n` +
+            `• Do I have overdue tasks?\n` +
+            `• What should I do first?\n` +
+            `• How many tasks are left?`
         );
     };
 
@@ -119,8 +622,36 @@ export default function AssistantScreen() {
         scrollToBottom();
 
         await new Promise((resolve) => {
-            setTimeout(resolve, 900);
+            setTimeout(resolve, 500);
         });
+
+        const parsedTask =
+            parseCreateTaskCommand(cleanMessage);
+
+        if (parsedTask) {
+            setPendingTask(parsedTask);
+
+            const assistantMessage = {
+                id: createMessageId(),
+                role: "assistant",
+                text:
+                    `I understood that as a new task:\n\n` +
+                    `Title: ${parsedTask.title}\n` +
+                    `Date: ${parsedTask.dueDate || "Not set"}\n` +
+                    `Time: ${parsedTask.dueTime || "Not set"}\n` +
+                    `Priority: ${parsedTask.priority}\n\n` +
+                    `Please confirm before I create it.`,
+            };
+
+            setMessages((currentMessages) => [
+                ...currentMessages,
+                assistantMessage,
+            ]);
+
+            setIsTyping(false);
+            scrollToBottom();
+            return;
+        }
 
         const assistantMessage = {
             id: createMessageId(),
@@ -136,7 +667,77 @@ export default function AssistantScreen() {
         setIsTyping(false);
         scrollToBottom();
     };
+    const confirmPendingTask = async () => {
+        if (!pendingTask || !user?.uid) {
+            return;
+        }
 
+        try {
+            setIsTyping(true);
+
+            await addUserTask(
+                user.uid,
+                pendingTask
+            );
+
+            const createdTask = pendingTask;
+
+            setPendingTask(null);
+
+            const assistantMessage = {
+                id: createMessageId(),
+                role: "assistant",
+                text:
+                    `Task created successfully! ✅\n\n` +
+                    `• ${createdTask.title}\n` +
+                    `• Date: ${createdTask.dueDate || "Not set"}\n` +
+                    `• Time: ${createdTask.dueTime || "Not set"}\n` +
+                    `• Priority: ${createdTask.priority}`,
+            };
+
+            setMessages((currentMessages) => [
+                ...currentMessages,
+                assistantMessage,
+            ]);
+        } catch (error) {
+            console.error(
+                "AI task creation error:",
+                error
+            );
+
+            const errorMessage = {
+                id: createMessageId(),
+                role: "assistant",
+                text:
+                    "I couldn't create that task. Please try again.",
+            };
+
+            setMessages((currentMessages) => [
+                ...currentMessages,
+                errorMessage,
+            ]);
+        } finally {
+            setIsTyping(false);
+            scrollToBottom();
+        }
+    };
+
+    const cancelPendingTask = () => {
+        setPendingTask(null);
+
+        const assistantMessage = {
+            id: createMessageId(),
+            role: "assistant",
+            text: "Okay, I won't create that task.",
+        };
+
+        setMessages((currentMessages) => [
+            ...currentMessages,
+            assistantMessage,
+        ]);
+
+        scrollToBottom();
+    };
     const resetConversation = () => {
         setMessages(INITIAL_MESSAGES);
         setInput("");
@@ -299,7 +900,7 @@ export default function AssistantScreen() {
                                 style={[
                                     styles.quickActionButton,
                                     isTyping &&
-                                        styles.quickActionDisabled,
+                                    styles.quickActionDisabled,
                                 ]}
                                 activeOpacity={0.75}
                                 disabled={isTyping}
@@ -343,7 +944,67 @@ export default function AssistantScreen() {
                         renderTypingIndicator
                     }
                 />
+                {pendingTask && (
+                    <View style={styles.confirmationContainer}>
+                        <View style={styles.confirmationCard}>
+                            <View style={styles.confirmationHeader}>
+                                <Ionicons
+                                    name="checkmark-circle-outline"
+                                    size={21}
+                                    color={Theme.colors.primary}
+                                />
 
+                                <Text style={styles.confirmationTitle}>
+                                    Create this task?
+                                </Text>
+                            </View>
+
+                            <Text style={styles.confirmationTaskTitle}>
+                                {pendingTask.title}
+                            </Text>
+
+                            <Text style={styles.confirmationDetail}>
+                                Date: {pendingTask.dueDate || "Not set"}
+                            </Text>
+
+                            <Text style={styles.confirmationDetail}>
+                                Time: {pendingTask.dueTime || "Not set"}
+                            </Text>
+
+                            <Text style={styles.confirmationDetail}>
+                                Priority: {pendingTask.priority}
+                            </Text>
+
+                            <View style={styles.confirmationActions}>
+                                <TouchableOpacity
+                                    style={styles.cancelButton}
+                                    onPress={cancelPendingTask}
+                                    disabled={isTyping}
+                                >
+                                    <Text style={styles.cancelButtonText}>
+                                        Cancel
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.confirmButton}
+                                    onPress={confirmPendingTask}
+                                    disabled={isTyping}
+                                >
+                                    <Ionicons
+                                        name="checkmark"
+                                        size={18}
+                                        color="#FFFFFF"
+                                    />
+
+                                    <Text style={styles.confirmButtonText}>
+                                        Create Task
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                )}
                 <View style={styles.inputSection}>
                     <View style={styles.inputContainer}>
                         <TouchableOpacity
@@ -379,7 +1040,7 @@ export default function AssistantScreen() {
                                 styles.sendButton,
                                 (!input.trim() ||
                                     isTyping) &&
-                                    styles.sendButtonDisabled,
+                                styles.sendButtonDisabled,
                             ]}
                             activeOpacity={0.8}
                             disabled={
@@ -406,6 +1067,80 @@ export default function AssistantScreen() {
 }
 
 const styles = StyleSheet.create({
+    confirmationContainer: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        backgroundColor: Theme.colors.background,
+    },
+
+    confirmationCard: {
+        padding: 14,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        borderRadius: 16,
+        backgroundColor: Theme.colors.surface,
+    },
+
+    confirmationHeader: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 7,
+        marginBottom: 10,
+    },
+
+    confirmationTitle: {
+        fontSize: 14,
+        fontWeight: "800",
+        color: Theme.colors.text,
+    },
+
+    confirmationTaskTitle: {
+        marginBottom: 8,
+        fontSize: 16,
+        fontWeight: "700",
+        color: Theme.colors.text,
+    },
+
+    confirmationDetail: {
+        marginBottom: 3,
+        fontSize: 13,
+        color: Theme.colors.secondaryText,
+    },
+
+    confirmationActions: {
+        flexDirection: "row",
+        justifyContent: "flex-end",
+        gap: 10,
+        marginTop: 14,
+    },
+
+    cancelButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        borderRadius: 12,
+    },
+
+    cancelButtonText: {
+        fontWeight: "700",
+        color: Theme.colors.text,
+    },
+
+    confirmButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 5,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 12,
+        backgroundColor: Theme.colors.primary,
+    },
+
+    confirmButtonText: {
+        fontWeight: "700",
+        color: "#FFFFFF",
+    },
     safeArea: {
         flex: 1,
         backgroundColor: Theme.colors.background,

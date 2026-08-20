@@ -13,6 +13,7 @@ import ScreenContainer from "../../components/ScreenContainer";
 import { Theme } from "../../constants/theme";
 import { auth } from "../../firebase/firebaseConfig";
 import { getUserProfile } from "../../firebase/firestore";
+import { listenToUserTasks } from "../../services/taskService";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -20,31 +21,8 @@ export default function Dashboard() {
   const [fullName, setFullName] = useState("");
   const [loadingProfile, setLoadingProfile] = useState(true);
 
-  // Temporary sample tasks.
-  // We will replace these with Firestore data when we build Task Management.
-  const tasks = [
-    {
-      id: "1",
-      title: "Review capstone documentation",
-      completed: false,
-      priority: "high",
-      time: "2:00 PM",
-    },
-    {
-      id: "2",
-      title: "Test Firebase authentication",
-      completed: true,
-      priority: "medium",
-      time: "4:00 PM",
-    },
-    {
-      id: "3",
-      title: "Plan dashboard interface",
-      completed: false,
-      priority: "low",
-      time: "6:00 PM",
-    },
-  ];
+  const [tasks, setTasks] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
 
   useEffect(() => {
     const loadUserProfile = async () => {
@@ -75,6 +53,32 @@ export default function Dashboard() {
     loadUserProfile();
   }, []);
 
+  useEffect(() => {
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) {
+      setTasks([]);
+      setLoadingTasks(false);
+      return;
+    }
+
+    setLoadingTasks(true);
+
+    const unsubscribe = listenToUserTasks(
+      currentUser.uid,
+      (receivedTasks) => {
+        setTasks(receivedTasks);
+        setLoadingTasks(false);
+      },
+      (error) => {
+        console.error("Dashboard task listener error:", error);
+        setLoadingTasks(false);
+      }
+    );
+
+    return unsubscribe;
+  }, []);
+
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
 
@@ -91,14 +95,67 @@ export default function Dashboard() {
 
   const firstName = fullName.trim().split(" ")[0] || "User";
 
-  const completedTasks = tasks.filter((task) => task.completed).length;
-  const highPriorityTasks = tasks.filter(
-    (task) => task.priority === "high" && !task.completed
-  ).length;
+  const today = useMemo(() => {
+    const date = new Date();
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  const todayTasks = useMemo(() => {
+    return tasks.filter(
+      (task) => task.dueDate === today
+    );
+  }, [tasks, today]);
+
+  const completedToday = useMemo(() => {
+    return todayTasks.filter(
+      (task) => task.completed
+    ).length;
+  }, [todayTasks]);
+
+  const pendingToday = useMemo(() => {
+    return todayTasks.filter(
+      (task) => !task.completed
+    ).length;
+  }, [todayTasks]);
+
+  const overdueTasks = useMemo(() => {
+    return tasks.filter(
+      (task) =>
+        !task.completed &&
+        task.dueDate &&
+        task.dueDate < today
+    );
+  }, [tasks, today]);
+  const upcomingTasks = useMemo(() => {
+    return tasks
+      .filter(
+        (task) =>
+          !task.completed &&
+          task.dueDate &&
+          task.dueDate > today
+      )
+      .sort((a, b) => {
+        if (a.dueDate !== b.dueDate) {
+          return a.dueDate.localeCompare(b.dueDate);
+        }
+
+        return (a.dueTime || "").localeCompare(
+          b.dueTime || ""
+        );
+      })
+      .slice(0, 3);
+  }, [tasks, today]);
 
   const progress =
-    tasks.length > 0
-      ? Math.round((completedTasks / tasks.length) * 100)
+    todayTasks.length > 0
+      ? Math.round(
+        (completedToday / todayTasks.length) * 100
+      )
       : 0;
 
   const navigateToTasks = () => {
@@ -108,7 +165,29 @@ export default function Dashboard() {
   const navigateToAssistant = () => {
     router.push("/(tabs)/assistant");
   };
+  const navigateToCreateTask = () => {
+    router.push("/create-task");
+  };
+  const formatUpcomingDate = (dateString) => {
+    if (!dateString) {
+      return "No date";
+    }
 
+    const [year, month, day] = dateString
+      .split("-")
+      .map(Number);
+
+    const date = new Date(
+      year,
+      month - 1,
+      day
+    );
+
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  };
   return (
     <ScreenContainer>
       <View style={styles.container}>
@@ -139,7 +218,7 @@ export default function Dashboard() {
               color={Theme.colors.text}
             />
 
-            <View style={styles.notificationDot} />
+
           </TouchableOpacity>
         </View>
 
@@ -149,7 +228,7 @@ export default function Dashboard() {
               <Text style={styles.sectionLabel}>Today&apos;s Progress</Text>
 
               <Text style={styles.progressText}>
-                {completedTasks} of {tasks.length} tasks completed
+                {completedToday} of {todayTasks.length} tasks completed today
               </Text>
             </View>
 
@@ -170,7 +249,7 @@ export default function Dashboard() {
           <View style={styles.summaryRow}>
             <SummaryItem
               icon="list-outline"
-              value={tasks.length}
+              value={todayTasks.length}
               label="Tasks Today"
             />
 
@@ -178,20 +257,52 @@ export default function Dashboard() {
 
             <SummaryItem
               icon="checkmark-circle-outline"
-              value={completedTasks}
+              value={completedToday}
               label="Completed"
             />
 
             <View style={styles.summaryDivider} />
 
             <SummaryItem
-              icon="flame-outline"
-              value={highPriorityTasks}
-              label="High Priority"
+              icon="time-outline"
+              value={pendingToday}
+              label="Pending"
             />
           </View>
         </View>
+        {overdueTasks.length > 0 && (
+          <TouchableOpacity
+            style={styles.overdueCard}
+            activeOpacity={0.75}
+            onPress={navigateToTasks}
+          >
+            <View style={styles.overdueIcon}>
+              <Ionicons
+                name="warning-outline"
+                size={22}
+                color={Theme.colors.error}
+              />
+            </View>
 
+            <View style={styles.overdueContent}>
+              <Text style={styles.overdueTitle}>
+                {overdueTasks.length === 1
+                  ? "1 overdue task"
+                  : `${overdueTasks.length} overdue tasks`}
+              </Text>
+
+              <Text style={styles.overdueText}>
+                Some tasks have passed their due date. Tap to review them.
+              </Text>
+            </View>
+
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={Theme.colors.secondaryText}
+            />
+          </TouchableOpacity>
+        )}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
         </View>
@@ -200,7 +311,7 @@ export default function Dashboard() {
           <QuickAction
             icon="add-circle-outline"
             label="Add Task"
-            onPress={navigateToTasks}
+            onPress={navigateToCreateTask}
           />
 
           <QuickAction
@@ -224,7 +335,18 @@ export default function Dashboard() {
           </TouchableOpacity>
         </View>
 
-        {tasks.length === 0 ? (
+        {loadingTasks ? (
+          <View style={styles.loadingTasksContainer}>
+            <ActivityIndicator
+              size="small"
+              color={Theme.colors.primary}
+            />
+
+            <Text style={styles.loadingTasksText}>
+              Loading today's tasks...
+            </Text>
+          </View>
+        ) : todayTasks.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons
               name="checkmark-done-circle-outline"
@@ -240,7 +362,7 @@ export default function Dashboard() {
 
             <TouchableOpacity
               style={styles.emptyButton}
-              onPress={navigateToTasks}
+              onPress={navigateToCreateTask}
             >
               <Ionicons name="add" size={20} color="#FFFFFF" />
 
@@ -249,13 +371,144 @@ export default function Dashboard() {
           </View>
         ) : (
           <View style={styles.taskList}>
-            {tasks.map((task) => (
-              <TaskItem key={task.id} task={task} />
+            {todayTasks.map((task) => (
+              <TaskItem
+                key={task.id}
+                task={task}
+                onPress={() =>
+                  router.push(`/task/${task.id}`)
+                }
+              />
+            ))}
+          </View>
+        )}
+
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>
+            Upcoming Tasks
+          </Text>
+
+          <TouchableOpacity onPress={navigateToTasks}>
+            <Text style={styles.viewAllText}>
+              View All
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {loadingTasks ? (
+          <View style={styles.loadingTasksContainer}>
+            <ActivityIndicator
+              size="small"
+              color={Theme.colors.primary}
+            />
+
+            <Text style={styles.loadingTasksText}>
+              Loading upcoming tasks...
+            </Text>
+          </View>
+        ) : upcomingTasks.length === 0 ? (
+          <View style={styles.upcomingEmpty}>
+            <Ionicons
+              name="calendar-outline"
+              size={28}
+              color={Theme.colors.secondaryText}
+            />
+
+            <Text style={styles.upcomingEmptyTitle}>
+              Nothing upcoming
+            </Text>
+
+            <Text style={styles.upcomingEmptyText}>
+              Future tasks will appear here.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.upcomingList}>
+            {upcomingTasks.map((task) => (
+              <TouchableOpacity
+                key={task.id}
+                style={styles.upcomingCard}
+                activeOpacity={0.75}
+                onPress={() =>
+                  router.push(`/task/${task.id}`)
+                }
+              >
+                <View style={styles.upcomingDateBox}>
+                  <Text style={styles.upcomingDateText}>
+                    {formatUpcomingDate(
+                      task.dueDate
+                    )}
+                  </Text>
+                </View>
+
+                <View style={styles.upcomingContent}>
+                  <Text
+                    style={styles.upcomingTitle}
+                    numberOfLines={1}
+                  >
+                    {task.title}
+                  </Text>
+
+                  <View style={styles.upcomingMeta}>
+                    {!!task.dueTime && (
+                      <View
+                        style={styles.upcomingMetaItem}
+                      >
+                        <Ionicons
+                          name="time-outline"
+                          size={14}
+                          color={
+                            Theme.colors.secondaryText
+                          }
+                        />
+
+                        <Text
+                          style={styles.upcomingMetaText}
+                        >
+                          {task.dueTime}
+                        </Text>
+                      </View>
+                    )}
+
+                    <View
+                      style={styles.upcomingMetaItem}
+                    >
+                      <Ionicons
+                        name="flag-outline"
+                        size={14}
+                        color={
+                          Theme.colors.secondaryText
+                        }
+                      />
+
+                      <Text
+                        style={[
+                          styles.upcomingMetaText,
+                          {
+                            textTransform:
+                              "capitalize",
+                          },
+                        ]}
+                      >
+                        {task.priority || "medium"}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <Ionicons
+                  name="chevron-forward"
+                  size={19}
+                  color={Theme.colors.secondaryText}
+                />
+              </TouchableOpacity>
             ))}
           </View>
         )}
       </View>
     </ScreenContainer>
+
   );
 }
 
@@ -294,7 +547,7 @@ function QuickAction({ icon, label, onPress }) {
   );
 }
 
-function TaskItem({ task }) {
+function TaskItem({ task, onPress }) {
   const priorityColor = {
     high: Theme.colors.high,
     medium: Theme.colors.medium,
@@ -302,7 +555,11 @@ function TaskItem({ task }) {
   }[task.priority];
 
   return (
-    <TouchableOpacity style={styles.taskCard} activeOpacity={0.75}>
+    <TouchableOpacity
+      style={styles.taskCard}
+      activeOpacity={0.75}
+      onPress={onPress}
+    >
       <View
         style={[
           styles.checkbox,
@@ -332,7 +589,9 @@ function TaskItem({ task }) {
               color={Theme.colors.secondaryText}
             />
 
-            <Text style={styles.taskTime}>{task.time}</Text>
+            <Text style={styles.taskTime}>
+              {task.dueTime || "No time set"}
+            </Text>
           </View>
 
           <View
@@ -376,6 +635,125 @@ function TaskItem({ task }) {
 }
 
 const styles = StyleSheet.create({
+  upcomingList: {
+    gap: 10,
+  },
+
+  upcomingCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.radius.lg,
+    backgroundColor: Theme.colors.surface,
+  },
+
+  upcomingDateBox: {
+    minWidth: 58,
+    paddingHorizontal: 8,
+    paddingVertical: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: Theme.colors.primaryLight,
+  },
+
+  upcomingDateText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: Theme.colors.primary,
+  },
+
+  upcomingContent: {
+    flex: 1,
+    marginHorizontal: 12,
+  },
+
+  upcomingTitle: {
+    fontSize: Theme.fonts.body,
+    fontWeight: "700",
+    color: Theme.colors.text,
+  },
+
+  upcomingMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 6,
+  },
+
+  upcomingMetaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+
+  upcomingMetaText: {
+    fontSize: 11,
+    color: Theme.colors.secondaryText,
+  },
+
+  upcomingEmpty: {
+    alignItems: "center",
+    paddingVertical: 24,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.radius.lg,
+    backgroundColor: Theme.colors.surface,
+  },
+
+  upcomingEmptyTitle: {
+    marginTop: 8,
+    fontSize: Theme.fonts.body,
+    fontWeight: "700",
+    color: Theme.colors.text,
+  },
+
+  upcomingEmptyText: {
+    marginTop: 4,
+    fontSize: Theme.fonts.caption,
+    color: Theme.colors.secondaryText,
+  },
+
+  overdueCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 16,
+    padding: 15,
+    borderRadius: Theme.radius.lg,
+    backgroundColor: Theme.colors.surface,
+    borderWidth: 1,
+    borderColor: Theme.colors.error,
+  },
+
+  overdueIcon: {
+    width: 42,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 13,
+    backgroundColor: `${Theme.colors.error}15`,
+  },
+
+  overdueContent: {
+    flex: 1,
+    marginHorizontal: 12,
+  },
+
+  overdueTitle: {
+    fontSize: Theme.fonts.body,
+    fontWeight: "700",
+    color: Theme.colors.error,
+  },
+
+  overdueText: {
+    marginTop: 3,
+    fontSize: Theme.fonts.caption,
+    lineHeight: 17,
+    color: Theme.colors.secondaryText,
+  },
   container: {
     width: "100%",
     maxWidth: 550,
@@ -417,15 +795,6 @@ const styles = StyleSheet.create({
     borderColor: Theme.colors.border,
   },
 
-  notificationDot: {
-    position: "absolute",
-    top: 9,
-    right: 10,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: Theme.colors.error,
-  },
 
   progressCard: {
     padding: 20,
@@ -680,5 +1049,17 @@ const styles = StyleSheet.create({
   emptyButtonText: {
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  loadingTasksContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 28,
+  },
+
+  loadingTasksText: {
+    fontSize: Theme.fonts.body,
+    color: Theme.colors.secondaryText,
   },
 });
