@@ -174,6 +174,73 @@ const getNextWeekdayDate = (weekdayName, forceNextWeek = false) => {
 
     return getDateKey(targetDate);
 };
+const getExactDate = (monthName, dayNumber) => {
+    const months = {
+        january: 0,
+        february: 1,
+        march: 2,
+        april: 3,
+        may: 4,
+        june: 5,
+        july: 6,
+        august: 7,
+        september: 8,
+        october: 9,
+        november: 10,
+        december: 11,
+    };
+
+    const month =
+        months[monthName.toLowerCase()];
+
+    const day = Number(dayNumber);
+
+    if (
+        month === undefined ||
+        !Number.isInteger(day) ||
+        day < 1 ||
+        day > 31
+    ) {
+        return null;
+    }
+
+    const today = new Date();
+
+    let year = today.getFullYear();
+
+    let targetDate = new Date(
+        year,
+        month,
+        day
+    );
+
+    // If that date already passed this year,
+    // interpret it as next year.
+    if (targetDate < new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate()
+    )) {
+        year += 1;
+
+        targetDate = new Date(
+            year,
+            month,
+            day
+        );
+    }
+
+    // Prevent impossible dates such as February 31.
+    if (
+        targetDate.getFullYear() !== year ||
+        targetDate.getMonth() !== month ||
+        targetDate.getDate() !== day
+    ) {
+        return null;
+    }
+
+    return getDateKey(targetDate);
+};
 const parseCreateTaskCommand = (message) => {
     const original = message.trim();
     const lower = original.toLowerCase();
@@ -221,6 +288,8 @@ const parseCreateTaskCommand = (message) => {
             ""
         );
     }
+
+    // WEEKDAY
     const weekdayMatch = workingText.match(
         /\b(next\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i
     );
@@ -242,6 +311,27 @@ const parseCreateTaskCommand = (message) => {
             ""
         );
     }
+    // EXACT DATE
+    const exactDateMatch = workingText.match(
+        /\b(?:on\s+)?(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?\b/i
+    );
+
+    if (exactDateMatch) {
+        const parsedDate = getExactDate(
+            exactDateMatch[1],
+            exactDateMatch[2]
+        );
+
+        if (parsedDate) {
+            dueDate = parsedDate;
+
+            workingText = workingText.replace(
+                exactDateMatch[0],
+                ""
+            );
+        }
+    }
+
     // PRIORITY
     const priorityMatch = workingText.match(
         /\b(high|medium|low)(?:\s+priority)?\b/i
