@@ -21,7 +21,10 @@ import { Theme } from "../../constants/theme";
 import { useAuth } from "../../hooks/useAuth";
 import {
     addUserTask,
+    changeTaskCompletion,
+    editUserTask,
     listenToUserTasks,
+    removeUserTask,
 } from "../../services/taskService";
 
 const QUICK_ACTIONS = [
@@ -403,6 +406,232 @@ const parseCreateTaskCommand = (message) => {
     };
 };
 
+const parseCompleteTaskCommand = (message) => {
+    const original = message.trim();
+
+    const match = original.match(
+        /^(?:mark\s+)?(.+?)\s+(?:as\s+)?(?:complete|completed|done)$/i
+    );
+
+    if (match) {
+        const title = match[1].trim();
+
+        if (title) {
+            return title;
+        }
+    }
+
+    const directMatch = original.match(
+        /^(?:complete|finish)\s+(.+)$/i
+    );
+
+    if (directMatch) {
+        const title = directMatch[1].trim();
+
+        if (title) {
+            return title;
+        }
+    }
+
+    return null;
+};
+const parseDeleteTaskCommand = (message) => {
+    const original = message.trim();
+
+    const match = original.match(
+        /^(?:delete|remove)\s+(?:task\s+)?(.+)$/i
+    );
+
+    if (!match) {
+        return null;
+    }
+
+    const title = match[1].trim();
+
+    return title || null;
+};
+const parsePriorityEditCommand = (message) => {
+    const original = message.trim();
+
+    const match = original.match(
+        /^(?:change|set)\s+(.+?)\s+(?:to|as)\s+(high|medium|low)(?:\s+priority)?$/i
+    );
+
+    if (!match) {
+        return null;
+    }
+
+    const title = match[1].trim();
+    const priority = match[2].toLowerCase();
+
+    if (!title) {
+        return null;
+    }
+
+    return {
+        title,
+        updates: {
+            priority,
+        },
+        description: `Priority → ${priority}`,
+    };
+};
+const parseRenameTaskCommand = (message) => {
+    const original = message.trim();
+
+    const match = original.match(
+        /^(?:rename|change)\s+(.+?)\s+to\s+(.+)$/i
+    );
+
+    if (!match) {
+        return null;
+    }
+
+    const oldTitle = match[1].trim();
+    const newTitle = match[2].trim();
+
+    if (!oldTitle || !newTitle) {
+        return null;
+    }
+
+    return {
+        title: oldTitle,
+        updates: {
+            title: newTitle,
+        },
+        description: `Title → ${newTitle}`,
+    };
+};
+const parseMoveTaskCommand = (message) => {
+    const original = message.trim();
+
+    const match = original.match(
+        /^(?:move|reschedule)\s+(.+?)\s+to\s+(.+)$/i
+    );
+
+    if (!match) {
+        return null;
+    }
+
+    const title = match[1].trim();
+    let dateText = match[2].trim();
+
+    if (!title || !dateText) {
+        return null;
+    }
+
+    let dueDate = null;
+    let dueTime = null;
+
+    // TODAY
+    if (/\btoday\b/i.test(dateText)) {
+        dueDate = getTodayDate();
+        dateText = dateText.replace(/\btoday\b/i, "");
+    }
+
+    // TOMORROW
+    if (/\btomorrow\b/i.test(dateText)) {
+        dueDate = getTomorrowDate();
+        dateText = dateText.replace(/\btomorrow\b/i, "");
+    }
+
+    // WEEKDAY
+    const weekdayMatch = dateText.match(
+        /\b(next\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i
+    );
+
+    if (weekdayMatch) {
+        dueDate = getNextWeekdayDate(
+            weekdayMatch[2],
+            Boolean(weekdayMatch[1])
+        );
+
+        dateText = dateText.replace(
+            weekdayMatch[0],
+            ""
+        );
+    }
+
+    // EXACT DATE
+    const exactDateMatch = dateText.match(
+        /\b(?:on\s+)?(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?\b/i
+    );
+
+    if (exactDateMatch) {
+        const parsedDate = getExactDate(
+            exactDateMatch[1],
+            exactDateMatch[2]
+        );
+
+        if (parsedDate) {
+            dueDate = parsedDate;
+
+            dateText = dateText.replace(
+                exactDateMatch[0],
+                ""
+            );
+        }
+    }
+
+    // TIME
+    const timeMatch = dateText.match(
+        /\bat\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i
+    );
+
+    if (timeMatch) {
+        let hour = Number(timeMatch[1]);
+        const minute = Number(
+            timeMatch[2] || "0"
+        );
+
+        const meridiem =
+            timeMatch[3]?.toLowerCase();
+
+        if (hour <= 23 && minute <= 59) {
+            if (meridiem === "pm" && hour < 12) {
+                hour += 12;
+            }
+
+            if (meridiem === "am" && hour === 12) {
+                hour = 0;
+            }
+
+            dueTime =
+                `${String(hour).padStart(2, "0")}:` +
+                `${String(minute).padStart(2, "0")}`;
+        }
+    }
+
+    if (!dueDate && !dueTime) {
+        return null;
+    }
+
+    const updates = {};
+
+    if (dueDate) {
+        updates.dueDate = dueDate;
+    }
+
+    if (dueTime) {
+        updates.dueTime = dueTime;
+    }
+
+    const descriptionParts = [];
+
+    if (dueDate) {
+        descriptionParts.push(`Date → ${dueDate}`);
+    }
+
+    if (dueTime) {
+        descriptionParts.push(`Time → ${dueTime}`);
+    }
+
+    return {
+        title,
+        updates,
+        description: descriptionParts.join(", "),
+    };
+};
 export default function AssistantScreen() {
     const listRef = useRef(null);
 
@@ -419,6 +648,18 @@ export default function AssistantScreen() {
     const [isTyping, setIsTyping] = useState(false);
     const [pendingTask, setPendingTask] =
         useState(null);
+    const [
+        pendingCompletion,
+        setPendingCompletion,
+    ] = useState(null);
+    const [
+        pendingEdit,
+        setPendingEdit,
+    ] = useState(null);
+    const [
+        pendingDeletion,
+        setPendingDeletion,
+    ] = useState(null);
 
     useEffect(() => {
         if (authLoading) {
@@ -715,6 +956,267 @@ export default function AssistantScreen() {
             setTimeout(resolve, 500);
         });
 
+        const parsedEdit =
+            parsePriorityEditCommand(cleanMessage) ||
+            parseRenameTaskCommand(cleanMessage) ||
+            parseMoveTaskCommand(cleanMessage);
+
+        if (parsedEdit) {
+            const normalizedTitle =
+                parsedEdit.title.toLowerCase();
+
+            const matchingTasks = tasks.filter(
+                (task) =>
+                    task.title
+                        ?.toLowerCase()
+                        .includes(normalizedTitle)
+            );
+
+            if (matchingTasks.length === 0) {
+                const assistantMessage = {
+                    id: createMessageId(),
+                    role: "assistant",
+                    text:
+                        `I couldn't find a task matching "${parsedEdit.title}".`,
+                };
+
+                setMessages((currentMessages) => [
+                    ...currentMessages,
+                    assistantMessage,
+                ]);
+
+                setIsTyping(false);
+                scrollToBottom();
+                return;
+            }
+
+            if (matchingTasks.length > 1) {
+                const taskList = matchingTasks
+                    .slice(0, 5)
+                    .map(
+                        (task) =>
+                            `• ${task.title}${task.dueDate
+                                ? ` — ${task.dueDate}`
+                                : ""
+                            }`
+                    )
+                    .join("\n");
+
+                const assistantMessage = {
+                    id: createMessageId(),
+                    role: "assistant",
+                    text:
+                        `I found more than one matching task:\n\n` +
+                        `${taskList}\n\n` +
+                        `Please be more specific.`,
+                };
+
+                setMessages((currentMessages) => [
+                    ...currentMessages,
+                    assistantMessage,
+                ]);
+
+                setIsTyping(false);
+                scrollToBottom();
+                return;
+            }
+
+            const matchedTask = matchingTasks[0];
+
+            setPendingEdit({
+                task: matchedTask,
+                updates: parsedEdit.updates,
+                description: parsedEdit.description,
+            });
+
+            const assistantMessage = {
+                id: createMessageId(),
+                role: "assistant",
+                text:
+                    `I found "${matchedTask.title}".\n\n` +
+                    `Change: ${parsedEdit.description}\n\n` +
+                    `Please confirm before I update it.`,
+            };
+
+            setMessages((currentMessages) => [
+                ...currentMessages,
+                assistantMessage,
+            ]);
+
+            setIsTyping(false);
+            scrollToBottom();
+            return;
+        }
+        const deletionTitle =
+            parseDeleteTaskCommand(cleanMessage);
+
+        if (deletionTitle) {
+            const normalizedTitle =
+                deletionTitle.toLowerCase();
+
+            const matchingTasks = tasks.filter(
+                (task) =>
+                    task.title
+                        ?.toLowerCase()
+                        .includes(normalizedTitle)
+            );
+
+            if (matchingTasks.length === 0) {
+                const assistantMessage = {
+                    id: createMessageId(),
+                    role: "assistant",
+                    text:
+                        `I couldn't find a task matching "${deletionTitle}".`,
+                };
+
+                setMessages((currentMessages) => [
+                    ...currentMessages,
+                    assistantMessage,
+                ]);
+
+                setIsTyping(false);
+                scrollToBottom();
+                return;
+            }
+
+            if (matchingTasks.length > 1) {
+                const taskList = matchingTasks
+                    .slice(0, 5)
+                    .map(
+                        (task) =>
+                            `• ${task.title}${task.dueDate
+                                ? ` — ${task.dueDate}`
+                                : ""
+                            }`
+                    )
+                    .join("\n");
+
+                const assistantMessage = {
+                    id: createMessageId(),
+                    role: "assistant",
+                    text:
+                        `I found more than one matching task:\n\n` +
+                        `${taskList}\n\n` +
+                        `Please be more specific.`,
+                };
+
+                setMessages((currentMessages) => [
+                    ...currentMessages,
+                    assistantMessage,
+                ]);
+
+                setIsTyping(false);
+                scrollToBottom();
+                return;
+            }
+
+            const matchedTask = matchingTasks[0];
+
+            setPendingDeletion(matchedTask);
+
+            const assistantMessage = {
+                id: createMessageId(),
+                role: "assistant",
+                text:
+                    `I found "${matchedTask.title}".\n\n` +
+                    `Please confirm before I delete it.`,
+            };
+
+            setMessages((currentMessages) => [
+                ...currentMessages,
+                assistantMessage,
+            ]);
+
+            setIsTyping(false);
+            scrollToBottom();
+            return;
+        }
+        const completionTitle =
+            parseCompleteTaskCommand(cleanMessage);
+
+        if (completionTitle) {
+            const normalizedTitle =
+                completionTitle.toLowerCase();
+
+            const matchingTasks = tasks.filter(
+                (task) =>
+                    !task.completed &&
+                    task.title
+                        ?.toLowerCase()
+                        .includes(normalizedTitle)
+            );
+
+            if (matchingTasks.length === 0) {
+                const assistantMessage = {
+                    id: createMessageId(),
+                    role: "assistant",
+                    text:
+                        `I couldn't find a pending task matching "${completionTitle}".`,
+                };
+
+                setMessages((currentMessages) => [
+                    ...currentMessages,
+                    assistantMessage,
+                ]);
+
+                setIsTyping(false);
+                scrollToBottom();
+                return;
+            }
+
+            if (matchingTasks.length > 1) {
+                const taskList = matchingTasks
+                    .slice(0, 5)
+                    .map(
+                        (task) =>
+                            `• ${task.title}${task.dueDate
+                                ? ` — ${task.dueDate}`
+                                : ""
+                            }`
+                    )
+                    .join("\n");
+
+                const assistantMessage = {
+                    id: createMessageId(),
+                    role: "assistant",
+                    text:
+                        `I found more than one matching task:\n\n` +
+                        `${taskList}\n\n` +
+                        `Please be more specific.`,
+                };
+
+                setMessages((currentMessages) => [
+                    ...currentMessages,
+                    assistantMessage,
+                ]);
+
+                setIsTyping(false);
+                scrollToBottom();
+                return;
+            }
+
+            const matchedTask = matchingTasks[0];
+
+            setPendingCompletion(matchedTask);
+
+            const assistantMessage = {
+                id: createMessageId(),
+                role: "assistant",
+                text:
+                    `I found "${matchedTask.title}".\n\n` +
+                    `Please confirm before I mark it as completed.`,
+            };
+
+            setMessages((currentMessages) => [
+                ...currentMessages,
+                assistantMessage,
+            ]);
+
+            setIsTyping(false);
+            scrollToBottom();
+            return;
+        }
+
         const parsedTask =
             parseCreateTaskCommand(cleanMessage);
 
@@ -828,10 +1330,231 @@ export default function AssistantScreen() {
 
         scrollToBottom();
     };
+    const confirmPendingCompletion = async () => {
+        if (!pendingCompletion?.id) {
+            return;
+        }
+
+        try {
+            setIsTyping(true);
+
+            await changeTaskCompletion(
+                pendingCompletion.id,
+                true
+            );
+
+            const completedTask = pendingCompletion;
+
+            setPendingCompletion(null);
+
+            const assistantMessage = {
+                id: createMessageId(),
+                role: "assistant",
+                text:
+                    `Task completed successfully! ✅\n\n` +
+                    `• ${completedTask.title}`,
+            };
+
+            setMessages((currentMessages) => [
+                ...currentMessages,
+                assistantMessage,
+            ]);
+        } catch (error) {
+            console.error(
+                "AI task completion error:",
+                error
+            );
+
+            const errorMessage = {
+                id: createMessageId(),
+                role: "assistant",
+                text:
+                    "I couldn't mark that task as completed. Please try again.",
+            };
+
+            setMessages((currentMessages) => [
+                ...currentMessages,
+                errorMessage,
+            ]);
+        } finally {
+            setIsTyping(false);
+            scrollToBottom();
+        }
+    };
+
+    const confirmPendingDeletion = async () => {
+        if (!pendingDeletion?.id) {
+            return;
+        }
+
+        try {
+            setIsTyping(true);
+
+            const deletedTask = pendingDeletion;
+
+            await removeUserTask(
+                pendingDeletion.id
+            );
+
+            setPendingDeletion(null);
+
+            const assistantMessage = {
+                id: createMessageId(),
+                role: "assistant",
+                text:
+                    `Task deleted successfully.\n\n` +
+                    `• ${deletedTask.title}`,
+            };
+
+            setMessages((currentMessages) => [
+                ...currentMessages,
+                assistantMessage,
+            ]);
+        } catch (error) {
+            console.error(
+                "AI task deletion error:",
+                error
+            );
+
+            const errorMessage = {
+                id: createMessageId(),
+                role: "assistant",
+                text:
+                    "I couldn't delete that task. Please try again.",
+            };
+
+            setMessages((currentMessages) => [
+                ...currentMessages,
+                errorMessage,
+            ]);
+        } finally {
+            setIsTyping(false);
+            scrollToBottom();
+        }
+    };
+
+    const cancelPendingDeletion = () => {
+        const taskTitle = pendingDeletion?.title;
+
+        setPendingDeletion(null);
+
+        const assistantMessage = {
+            id: createMessageId(),
+            role: "assistant",
+            text: taskTitle
+                ? `Okay, I won't delete "${taskTitle}".`
+                : "Okay, I won't delete that task.",
+        };
+
+        setMessages((currentMessages) => [
+            ...currentMessages,
+            assistantMessage,
+        ]);
+
+        scrollToBottom();
+    };
+
+    const cancelPendingCompletion = () => {
+        const taskTitle = pendingCompletion?.title;
+
+        setPendingCompletion(null);
+
+        const assistantMessage = {
+            id: createMessageId(),
+            role: "assistant",
+            text: taskTitle
+                ? `Okay, I won't mark "${taskTitle}" as completed.`
+                : "Okay, I won't complete that task.",
+        };
+
+        setMessages((currentMessages) => [
+            ...currentMessages,
+            assistantMessage,
+        ]);
+
+        scrollToBottom();
+    };
+
+    const confirmPendingEdit = async () => {
+        if (!pendingEdit?.task?.id || !pendingEdit?.updates) {
+            return;
+        }
+
+        try {
+            setIsTyping(true);
+
+            await editUserTask(
+                pendingEdit.task.id,
+                pendingEdit.updates
+            );
+
+            const editedTask = pendingEdit.task;
+            const editDescription = pendingEdit.description;
+
+            setPendingEdit(null);
+
+            const assistantMessage = {
+                id: createMessageId(),
+                role: "assistant",
+                text:
+                    `Task updated successfully! ✅\n\n` +
+                    `• ${editedTask.title}\n` +
+                    `• ${editDescription}`,
+            };
+
+            setMessages((currentMessages) => [
+                ...currentMessages,
+                assistantMessage,
+            ]);
+        } catch (error) {
+            console.error("AI task edit error:", error);
+
+            const errorMessage = {
+                id: createMessageId(),
+                role: "assistant",
+                text:
+                    "I couldn't update that task. Please try again.",
+            };
+
+            setMessages((currentMessages) => [
+                ...currentMessages,
+                errorMessage,
+            ]);
+        } finally {
+            setIsTyping(false);
+            scrollToBottom();
+        }
+    };
+
+    const cancelPendingEdit = () => {
+        const taskTitle = pendingEdit?.task?.title;
+
+        setPendingEdit(null);
+
+        const assistantMessage = {
+            id: createMessageId(),
+            role: "assistant",
+            text: taskTitle
+                ? `Okay, I won't change "${taskTitle}".`
+                : "Okay, I won't make that change.",
+        };
+
+        setMessages((currentMessages) => [
+            ...currentMessages,
+            assistantMessage,
+        ]);
+
+        scrollToBottom();
+    };
+
     const resetConversation = () => {
         setMessages(INITIAL_MESSAGES);
         setInput("");
         setIsTyping(false);
+        setPendingTask(null);
+        setPendingCompletion(null);
+        setPendingDeletion(null);
+        setPendingEdit(null);
     };
 
     const renderMessage = ({ item }) => {
@@ -1089,6 +1812,181 @@ export default function AssistantScreen() {
 
                                     <Text style={styles.confirmButtonText}>
                                         Create Task
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                )}
+                {pendingCompletion && (
+                    <View style={styles.confirmationContainer}>
+                        <View style={styles.confirmationCard}>
+                            <View style={styles.confirmationHeader}>
+                                <Ionicons
+                                    name="checkmark-done-circle-outline"
+                                    size={21}
+                                    color={Theme.colors.primary}
+                                />
+
+                                <Text style={styles.confirmationTitle}>
+                                    Mark this task complete?
+                                </Text>
+                            </View>
+
+                            <Text style={styles.confirmationTaskTitle}>
+                                {pendingCompletion.title}
+                            </Text>
+
+                            {pendingCompletion.dueDate && (
+                                <Text style={styles.confirmationDetail}>
+                                    Date: {pendingCompletion.dueDate}
+                                </Text>
+                            )}
+
+                            {pendingCompletion.dueTime && (
+                                <Text style={styles.confirmationDetail}>
+                                    Time: {pendingCompletion.dueTime}
+                                </Text>
+                            )}
+
+                            <View style={styles.confirmationActions}>
+                                <TouchableOpacity
+                                    style={styles.cancelButton}
+                                    onPress={cancelPendingCompletion}
+                                    disabled={isTyping}
+                                >
+                                    <Text style={styles.cancelButtonText}>
+                                        Cancel
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.confirmButton}
+                                    onPress={confirmPendingCompletion}
+                                    disabled={isTyping}
+                                >
+                                    <Ionicons
+                                        name="checkmark"
+                                        size={18}
+                                        color="#FFFFFF"
+                                    />
+
+                                    <Text style={styles.confirmButtonText}>
+                                        Mark Complete
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                )}
+                {pendingDeletion && (
+                    <View style={styles.confirmationContainer}>
+                        <View style={styles.confirmationCard}>
+                            <View style={styles.confirmationHeader}>
+                                <Ionicons
+                                    name="trash-outline"
+                                    size={21}
+                                    color={Theme.colors.error}
+                                />
+
+                                <Text style={styles.confirmationTitle}>
+                                    Delete this task?
+                                </Text>
+                            </View>
+
+                            <Text style={styles.confirmationTaskTitle}>
+                                {pendingDeletion.title}
+                            </Text>
+
+                            {pendingDeletion.dueDate && (
+                                <Text style={styles.confirmationDetail}>
+                                    Date: {pendingDeletion.dueDate}
+                                </Text>
+                            )}
+
+                            {pendingDeletion.dueTime && (
+                                <Text style={styles.confirmationDetail}>
+                                    Time: {pendingDeletion.dueTime}
+                                </Text>
+                            )}
+
+                            <View style={styles.confirmationActions}>
+                                <TouchableOpacity
+                                    style={styles.cancelButton}
+                                    onPress={cancelPendingDeletion}
+                                    disabled={isTyping}
+                                >
+                                    <Text style={styles.cancelButtonText}>
+                                        Cancel
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.deleteConfirmButton}
+                                    onPress={confirmPendingDeletion}
+                                    disabled={isTyping}
+                                >
+                                    <Ionicons
+                                        name="trash-outline"
+                                        size={17}
+                                        color="#FFFFFF"
+                                    />
+
+                                    <Text style={styles.confirmButtonText}>
+                                        Delete Task
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                )}
+                {pendingEdit && (
+                    <View style={styles.confirmationContainer}>
+                        <View style={styles.confirmationCard}>
+                            <View style={styles.confirmationHeader}>
+                                <Ionicons
+                                    name="create-outline"
+                                    size={21}
+                                    color={Theme.colors.primary}
+                                />
+
+                                <Text style={styles.confirmationTitle}>
+                                    Update this task?
+                                </Text>
+                            </View>
+
+                            <Text style={styles.confirmationTaskTitle}>
+                                {pendingEdit.task.title}
+                            </Text>
+
+                            <Text style={styles.confirmationDetail}>
+                                {pendingEdit.description}
+                            </Text>
+
+                            <View style={styles.confirmationActions}>
+                                <TouchableOpacity
+                                    style={styles.cancelButton}
+                                    onPress={cancelPendingEdit}
+                                    disabled={isTyping}
+                                >
+                                    <Text style={styles.cancelButtonText}>
+                                        Cancel
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.confirmButton}
+                                    onPress={confirmPendingEdit}
+                                    disabled={isTyping}
+                                >
+                                    <Ionicons
+                                        name="checkmark"
+                                        size={18}
+                                        color="#FFFFFF"
+                                    />
+
+                                    <Text style={styles.confirmButtonText}>
+                                        Update Task
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -1509,5 +2407,14 @@ const styles = StyleSheet.create({
         textAlign: "center",
         fontSize: 10,
         color: Theme.colors.secondaryText,
+    },
+    deleteConfirmButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 5,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 12,
+        backgroundColor: Theme.colors.error,
     },
 });
