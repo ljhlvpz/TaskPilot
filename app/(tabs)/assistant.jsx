@@ -27,6 +27,11 @@ import {
     removeUserTask,
 } from "../../services/taskService";
 
+import {
+    ExpoSpeechRecognitionModule,
+    useSpeechRecognitionEvent,
+} from "expo-speech-recognition";
+
 const QUICK_ACTIONS = [
     {
         id: "plan",
@@ -633,6 +638,30 @@ const parseMoveTaskCommand = (message) => {
     };
 };
 export default function AssistantScreen() {
+    const startVoiceRecognition = async () => {
+        try {
+            const result =
+                await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+
+            if (!result.granted) {
+                return;
+            }
+
+            ExpoSpeechRecognitionModule.start({
+                lang: "en-US",
+                interimResults: true,
+                continuous: false,
+            });
+        } catch (error) {
+            console.error(
+                "Unable to start speech recognition:",
+                error
+            );
+
+            setIsListening(false);
+        }
+    };
+
     const listRef = useRef(null);
 
     const { user, authLoading } = useAuth();
@@ -640,6 +669,8 @@ export default function AssistantScreen() {
     const [tasks, setTasks] = useState([]);
     const [tasksLoading, setTasksLoading] =
         useState(true);
+
+    const [isListening, setIsListening] = useState(false);
 
     const [messages, setMessages] =
         useState(INITIAL_MESSAGES);
@@ -927,6 +958,36 @@ export default function AssistantScreen() {
             `• How many tasks are left?`
         );
     };
+
+    useSpeechRecognitionEvent("start", () => {
+        setIsListening(true);
+    });
+
+    useSpeechRecognitionEvent("end", () => {
+        setIsListening(false);
+    });
+
+    useSpeechRecognitionEvent("error", (event) => {
+        setIsListening(false);
+
+        if (event.error === "no-speech") {
+            console.log("Speech recognition ended because no speech was detected.");
+            return;
+        }
+
+        console.error("Speech recognition error:", event);
+    });
+
+    useSpeechRecognitionEvent("result", (event) => {
+        const transcript =
+            event.results?.[0]?.transcript?.trim();
+
+        if (!transcript) {
+            return;
+        }
+
+        setInput(transcript);
+    });
 
     const sendMessage = async (customMessage) => {
         const cleanMessage = (
@@ -1996,13 +2057,25 @@ export default function AssistantScreen() {
                 <View style={styles.inputSection}>
                     <View style={styles.inputContainer}>
                         <TouchableOpacity
-                            style={styles.voiceButton}
+                            style={[
+                                styles.voiceButton,
+                                isListening && styles.voiceButtonListening,
+                            ]}
                             activeOpacity={0.75}
+                            onPress={startVoiceRecognition}
                         >
                             <Ionicons
-                                name="mic-outline"
+                                name={
+                                    isListening
+                                        ? "mic"
+                                        : "mic-outline"
+                                }
                                 size={22}
-                                color={Theme.colors.primary}
+                                color={
+                                    isListening
+                                        ? "#FFFFFF"
+                                        : Theme.colors.primary
+                                }
                             />
                         </TouchableOpacity>
 
@@ -2357,6 +2430,10 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: Theme.colors.border,
         backgroundColor: Theme.colors.surface,
+    },
+
+    voiceButtonListening: {
+        backgroundColor: Theme.colors.primary,
     },
 
     inputContainer: {
