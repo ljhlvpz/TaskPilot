@@ -11,6 +11,7 @@
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",
+    "@react-native-google-signin/google-signin": "^16.1.4",
     "expo": "~54.0.35",
     "expo-constants": "~18.0.13",
     "expo-dev-client": "~6.0.21",

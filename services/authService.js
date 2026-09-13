@@ -1,4 +1,14 @@
-import { register, login, logout, resetPassword } from "../firebase/auth";
+import {
+  register,
+  login,
+  logout,
+  resetPassword,
+  loginWithGoogleCredential,
+} from "../firebase/auth";
+
+export const googleLoginUser = async (idToken) => {
+  return loginWithGoogleCredential(idToken);
+};
 
 export const registerUser = async (email, password) => {
   return await register(email, password);

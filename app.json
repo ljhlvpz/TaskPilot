@@ -21,6 +21,7 @@
       }
     },
     "android": {
+      "googleServicesFile": "./android/app/google-services.json",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -48,7 +49,8 @@
             "com.google.android.googlequicksearchbox"
           ]
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin"
     ]
   }
 }

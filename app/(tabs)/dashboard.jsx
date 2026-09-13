@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -24,34 +31,61 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
 
-  useEffect(() => {
-    const loadUserProfile = async () => {
-      try {
-        const currentUser = auth.currentUser;
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
 
-        if (!currentUser) {
-          setLoadingProfile(false);
-          return;
+      const loadUserProfile = async () => {
+        try {
+          const currentUser = auth.currentUser;
+
+          if (!currentUser) {
+            if (isActive) {
+              setLoadingProfile(false);
+            }
+            return;
+          }
+
+          setLoadingProfile(true);
+
+          const profile = await getUserProfile(
+            currentUser.uid
+          );
+
+          if (!isActive) {
+            return;
+          }
+
+          if (profile?.name) {
+            setFullName(profile.name);
+          } else if (profile?.fullName) {
+            setFullName(profile.fullName);
+          } else if (currentUser.displayName) {
+            setFullName(currentUser.displayName);
+          } else if (currentUser.email) {
+            setFullName(
+              currentUser.email.split("@")[0]
+            );
+          }
+        } catch (error) {
+          console.error(
+            "Dashboard profile error:",
+            error
+          );
+        } finally {
+          if (isActive) {
+            setLoadingProfile(false);
+          }
         }
+      };
 
-        const profile = await getUserProfile(currentUser.uid);
+      loadUserProfile();
 
-        if (profile?.fullName) {
-          setFullName(profile.fullName);
-        } else if (currentUser.displayName) {
-          setFullName(currentUser.displayName);
-        } else if (currentUser.email) {
-          setFullName(currentUser.email.split("@")[0]);
-        }
-      } catch (error) {
-        console.error("Dashboard profile error:", error);
-      } finally {
-        setLoadingProfile(false);
-      }
-    };
-
-    loadUserProfile();
-  }, []);
+      return () => {
+        isActive = false;
+      };
+    }, [])
+  );
 
   useEffect(() => {
     const currentUser = auth.currentUser;

@@ -1,4 +1,7 @@
-import { useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 import {
   View,
   Text,
@@ -8,13 +11,22 @@ import {
 } from "react-native";
 import { Link, useRouter } from "expo-router";
 
+import {
+  GoogleSignin,
+  statusCodes,
+} from "@react-native-google-signin/google-signin";
+
 import ScreenContainer from "../../components/ScreenContainer";
 import Logo from "../../components/Logo";
 import CustomInput from "../../components/CustomInput";
 import CustomButton from "../../components/CustomButton";
 
 import { Theme } from "../../constants/theme";
-import { loginUser } from "../../services/authService";
+import {
+  loginUser,
+  forgotPassword,
+  googleLoginUser,
+} from "../../services/authService";
 import {
   isRequired,
   isValidEmail,
@@ -101,6 +113,56 @@ export default function Login() {
       setLoading(false);
     }
   };
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId:
+        "147193579745-i07b7eg9ijt1iev8lqtfaiqjmqk4bou5.apps.googleusercontent.com",
+    });
+  }, []);
+
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
+
+      const response = await GoogleSignin.signIn();
+
+      const idToken =
+        response?.data?.idToken ||
+        response?.idToken;
+
+      if (!idToken) {
+        throw new Error(
+          "Google did not return an ID token."
+        );
+      }
+
+      await googleLoginUser(idToken);
+
+      router.replace("/(tabs)/dashboard");
+    } catch (error) {
+      console.error(
+        "Google Sign-In error:",
+        error
+      );
+
+      if (
+        error.code === statusCodes.SIGN_IN_CANCELLED
+      ) {
+        return;
+      }
+
+      Alert.alert(
+        "Google Sign-In Failed",
+        "Unable to sign in with Google. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <ScreenContainer>
@@ -133,8 +195,60 @@ export default function Login() {
         <TouchableOpacity
           style={styles.forgotContainer}
           disabled={loading}
-          onPress={() => {
-            // We will connect this next.
+          onPress={async () => {
+            const cleanEmail = email.trim().toLowerCase();
+
+            if (!cleanEmail) {
+              Alert.alert(
+                "Email Required",
+                "Please enter your email address first."
+              );
+              return;
+            }
+
+            if (!isValidEmail(cleanEmail)) {
+              Alert.alert(
+                "Invalid Email",
+                "Please enter a valid email address."
+              );
+              return;
+            }
+
+            try {
+              setLoading(true);
+
+              await forgotPassword(cleanEmail);
+
+              Alert.alert(
+                "Reset Email Sent",
+                "Check your email for a password reset link."
+              );
+            } catch (error) {
+              console.error(
+                "Forgot password error:",
+                error
+              );
+
+              let message =
+                "Unable to send a password reset email. Please try again.";
+
+              if (error.code === "auth/user-not-found") {
+                message =
+                  "No account was found with that email address.";
+              } else if (
+                error.code === "auth/network-request-failed"
+              ) {
+                message =
+                  "Unable to connect. Please check your internet connection.";
+              }
+
+              Alert.alert(
+                "Reset Failed",
+                message
+              );
+            } finally {
+              setLoading(false);
+            }
           }}
         >
           <Text style={styles.forgotText}>
@@ -151,9 +265,7 @@ export default function Login() {
         <CustomButton
           title="Continue with Google"
           type="secondary"
-          onPress={() => {
-            // Google Sign-In will be implemented later.
-          }}
+          onPress={handleGoogleLogin}
           disabled={loading}
         />
 
