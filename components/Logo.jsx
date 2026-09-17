@@ -5,6 +5,7 @@ export default function Logo() {
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>TaskPilot</Text>
+
       <Text style={styles.tagline}>
         Your AI Productivity Companion
       </Text>
@@ -14,9 +15,9 @@ export default function Logo() {
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: "center",
-    marginBottom: Theme.spacing.xl,
-  },
+  alignItems: "center",
+  marginBottom: Theme.spacing.xl,
+},
 
   logo: {
     fontSize: 34,

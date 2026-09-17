@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+
 import {
   View,
   Text,
@@ -65,6 +66,10 @@ export default function NotesScreen() {
     return unsubscribe;
   }, []);
 
+  // =========================================
+  // CREATE NOTE
+  // =========================================
+
   const openCreateNote = () => {
     setEditingNote(null);
     setTitle("");
@@ -72,12 +77,20 @@ export default function NotesScreen() {
     setModalVisible(true);
   };
 
+  // =========================================
+  // EDIT NOTE
+  // =========================================
+
   const openEditNote = (note) => {
     setEditingNote(note);
     setTitle(note.title || "");
     setContent(note.content || "");
     setModalVisible(true);
   };
+
+  // =========================================
+  // CLOSE MODAL
+  // =========================================
 
   const closeModal = () => {
     if (saving) return;
@@ -88,24 +101,37 @@ export default function NotesScreen() {
     setContent("");
   };
 
+  // =========================================
+  // SAVE NOTE
+  // =========================================
+
   const handleSave = async () => {
     const cleanTitle = title.trim();
     const cleanContent = content.trim();
 
     if (!cleanTitle) {
-      Alert.alert("Missing Title", "Please enter a title for your note.");
+      Alert.alert(
+        "Missing Title",
+        "Please enter a title for your note."
+      );
       return;
     }
 
     if (!cleanContent) {
-      Alert.alert("Missing Content", "Please enter some note content.");
+      Alert.alert(
+        "Missing Content",
+        "Please enter some note content."
+      );
       return;
     }
 
     const uid = auth.currentUser?.uid;
 
     if (!uid) {
-      Alert.alert("Not Signed In", "Please sign in again.");
+      Alert.alert(
+        "Not Signed In",
+        "Please sign in again."
+      );
       return;
     }
 
@@ -137,6 +163,10 @@ export default function NotesScreen() {
     }
   };
 
+  // =========================================
+  // DELETE NOTE
+  // =========================================
+
   const handleDelete = (note) => {
     Alert.alert(
       "Delete Note",
@@ -153,7 +183,10 @@ export default function NotesScreen() {
             try {
               await removeUserNote(note.id);
             } catch (error) {
-              console.error("Delete note error:", error);
+              console.error(
+                "Delete note error:",
+                error
+              );
 
               Alert.alert(
                 "Delete Failed",
@@ -166,6 +199,10 @@ export default function NotesScreen() {
     );
   };
 
+  // =========================================
+  // NOTE CARD
+  // =========================================
+
   const renderNote = ({ item }) => {
     return (
       <TouchableOpacity
@@ -174,11 +211,17 @@ export default function NotesScreen() {
         onPress={() => openEditNote(item)}
       >
         <View style={styles.noteContent}>
-          <Text style={styles.noteTitle} numberOfLines={1}>
+          <Text
+            style={styles.noteTitle}
+            numberOfLines={1}
+          >
             {item.title}
           </Text>
 
-          <Text style={styles.noteText} numberOfLines={3}>
+          <Text
+            style={styles.noteText}
+            numberOfLines={3}
+          >
             {item.content}
           </Text>
         </View>
@@ -186,27 +229,43 @@ export default function NotesScreen() {
         <TouchableOpacity
           style={styles.deleteButton}
           onPress={() => handleDelete(item)}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={{
+            top: 10,
+            bottom: 10,
+            left: 10,
+            right: 10,
+          }}
         >
           <Ionicons
             name="trash-outline"
             size={20}
-            color="#D9534F"
+            color={Theme.colors.error}
           />
         </TouchableOpacity>
       </TouchableOpacity>
     );
   };
 
+  // =========================================
+  // UI
+  // =========================================
+
   return (
     <View style={styles.container}>
-      {/* Header */}
+
+      {/* =====================================
+          HEADER
+      ===================================== */}
+
       <View style={styles.header}>
         <View>
-          <Text style={styles.heading}>My Notes</Text>
+          <Text style={styles.heading}>
+            My Notes
+          </Text>
 
           <Text style={styles.subtitle}>
-            Write down anything you want to{"\n"}remember.
+            Write down anything you want to{"\n"}
+            remember.
           </Text>
         </View>
 
@@ -214,24 +273,36 @@ export default function NotesScreen() {
           style={styles.addButton}
           onPress={openCreateNote}
         >
-          <Ionicons name="add" size={32} color="#FFFFFF" />
+          <Ionicons
+            name="add"
+            size={32}
+            color={Theme.colors.surface}
+          />
         </TouchableOpacity>
       </View>
 
-      {/* Notes */}
+
+      {/* =====================================
+          NOTES
+      ===================================== */}
+
       {loading ? (
         <View style={styles.centerContent}>
-          <Text style={styles.loadingText}>Loading notes...</Text>
+          <Text style={styles.loadingText}>
+            Loading notes...
+          </Text>
         </View>
       ) : notes.length === 0 ? (
         <View style={styles.centerContent}>
           <Ionicons
             name="document-text-outline"
             size={64}
-            color="#777777"
+            color={Theme.colors.primary}
           />
 
-          <Text style={styles.emptyTitle}>No notes yet</Text>
+          <Text style={styles.emptyTitle}>
+            No notes yet
+          </Text>
 
           <Text style={styles.emptyText}>
             Tap the + button to create your first note.
@@ -247,7 +318,11 @@ export default function NotesScreen() {
         />
       )}
 
-      {/* Create / Edit Modal */}
+
+      {/* =====================================
+          CREATE / EDIT MODAL
+      ===================================== */}
+
       <Modal
         visible={modalVisible}
         animationType="slide"
@@ -256,12 +331,21 @@ export default function NotesScreen() {
       >
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior={
+            Platform.OS === "ios"
+              ? "padding"
+              : "height"
+          }
         >
           <View style={styles.modalContainer}>
+
+            {/* MODAL HEADER */}
+
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {editingNote ? "Edit Note" : "New Note"}
+                {editingNote
+                  ? "Edit Note"
+                  : "New Note"}
               </Text>
 
               <TouchableOpacity
@@ -271,31 +355,45 @@ export default function NotesScreen() {
                 <Ionicons
                   name="close"
                   size={28}
-                  color="#333333"
+                  color={Theme.colors.text}
                 />
               </TouchableOpacity>
             </View>
 
+
+            {/* TITLE */}
+
             <TextInput
               style={styles.titleInput}
               placeholder="Note title"
-              placeholderTextColor="#888888"
+              placeholderTextColor={
+                Theme.colors.secondaryText
+              }
               value={title}
               onChangeText={setTitle}
               maxLength={100}
             />
 
+
+            {/* CONTENT */}
+
             <TextInput
               style={styles.contentInput}
               placeholder="Write your note here..."
-              placeholderTextColor="#888888"
+              placeholderTextColor={
+                Theme.colors.secondaryText
+              }
               value={content}
               onChangeText={setContent}
               multiline
               textAlignVertical="top"
             />
 
+
+            {/* ACTIONS */}
+
             <View style={styles.modalActions}>
+
               {editingNote && (
                 <TouchableOpacity
                   style={styles.modalDeleteButton}
@@ -308,10 +406,12 @@ export default function NotesScreen() {
                   <Ionicons
                     name="trash-outline"
                     size={20}
-                    color="#D9534F"
+                    color={Theme.colors.error}
                   />
 
-                  <Text style={styles.modalDeleteText}>
+                  <Text
+                    style={styles.modalDeleteText}
+                  >
                     Delete
                   </Text>
                 </TouchableOpacity>
@@ -320,33 +420,57 @@ export default function NotesScreen() {
               <TouchableOpacity
                 style={[
                   styles.saveButton,
-                  saving && styles.disabledButton,
+                  saving &&
+                    styles.disabledButton,
                 ]}
                 onPress={handleSave}
                 disabled={saving}
               >
-                <Text style={styles.saveButtonText}>
-                  {saving ? "Saving..." : "Save Note"}
+                <Text
+                  style={styles.saveButtonText}
+                >
+                  {saving
+                    ? "Saving..."
+                    : "Save Note"}
                 </Text>
               </TouchableOpacity>
+
             </View>
+
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
     </View>
   );
 }
 
+
+// =============================================
+// STYLES
+// =============================================
+
 const styles = StyleSheet.create({
+
+  // -----------------------------------------
+  // SCREEN
+  // -----------------------------------------
+
   container: {
     flex: 1,
-    backgroundColor: "#F8F9FC",
+    backgroundColor: Theme.colors.background,
   },
+
+
+  // -----------------------------------------
+  // HEADER
+  // -----------------------------------------
 
   header: {
     paddingTop: 58,
     paddingHorizontal: 20,
     paddingBottom: 18,
+
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -355,24 +479,31 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#17172A",
+    color: Theme.colors.text,
   },
 
   subtitle: {
     marginTop: 6,
     fontSize: 14,
     lineHeight: 19,
-    color: "#777777",
+    color: Theme.colors.secondaryText,
   },
 
   addButton: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: "#5146E5",
+
+    backgroundColor: Theme.colors.primary,
+
     alignItems: "center",
     justifyContent: "center",
   },
+
+
+  // -----------------------------------------
+  // LIST
+  // -----------------------------------------
 
   listContent: {
     paddingHorizontal: 18,
@@ -380,12 +511,15 @@ const styles = StyleSheet.create({
   },
 
   noteCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Theme.colors.surface,
+
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: "#E2E2E8",
+    borderColor: Theme.colors.border,
+
     padding: 17,
     marginBottom: 14,
+
     flexDirection: "row",
     alignItems: "flex-start",
   },
@@ -398,19 +532,24 @@ const styles = StyleSheet.create({
   noteTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#292936",
+    color: Theme.colors.text,
     marginBottom: 8,
   },
 
   noteText: {
     fontSize: 15,
     lineHeight: 21,
-    color: "#777777",
+    color: Theme.colors.secondaryText,
   },
 
   deleteButton: {
     padding: 5,
   },
+
+
+  // -----------------------------------------
+  // EMPTY / LOADING
+  // -----------------------------------------
 
   centerContent: {
     flex: 1,
@@ -423,22 +562,27 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 15,
-    color: "#777777",
+    color: Theme.colors.secondaryText,
   },
 
   emptyTitle: {
     marginTop: 18,
     fontSize: 20,
     fontWeight: "700",
-    color: "#3A3A43",
+    color: Theme.colors.text,
   },
 
   emptyText: {
     marginTop: 8,
     textAlign: "center",
     fontSize: 14,
-    color: "#888888",
+    color: Theme.colors.secondaryText,
   },
+
+
+  // -----------------------------------------
+  // MODAL
+  // -----------------------------------------
 
   modalOverlay: {
     flex: 1,
@@ -447,9 +591,11 @@ const styles = StyleSheet.create({
   },
 
   modalContainer: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Theme.colors.surface,
+
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+
     padding: 22,
     paddingBottom: 30,
   },
@@ -464,31 +610,50 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#20202D",
+    color: Theme.colors.text,
   },
+
+
+  // -----------------------------------------
+  // MODAL INPUTS
+  // -----------------------------------------
 
   titleInput: {
     borderWidth: 1,
-    borderColor: "#DCDCE4",
+    borderColor: Theme.colors.border,
+
     borderRadius: 12,
+
     paddingHorizontal: 15,
     height: 50,
+
     fontSize: 16,
-    color: "#222222",
+    color: Theme.colors.text,
+
     marginBottom: 12,
   },
 
   contentInput: {
     borderWidth: 1,
-    borderColor: "#DCDCE4",
+    borderColor: Theme.colors.border,
+
     borderRadius: 12,
+
     paddingHorizontal: 15,
     paddingTop: 14,
+
     minHeight: 160,
+
     fontSize: 16,
     lineHeight: 22,
-    color: "#222222",
+
+    color: Theme.colors.text,
   },
+
+
+  // -----------------------------------------
+  // MODAL ACTIONS
+  // -----------------------------------------
 
   modalActions: {
     flexDirection: "row",
@@ -500,32 +665,39 @@ const styles = StyleSheet.create({
   modalDeleteButton: {
     height: 50,
     paddingHorizontal: 15,
+
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#F0CACA",
+
+    borderColor: Theme.colors.error,
+
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+
     gap: 7,
   },
 
   modalDeleteText: {
-    color: "#D9534F",
+    color: Theme.colors.error,
     fontWeight: "600",
     fontSize: 15,
   },
 
   saveButton: {
     flex: 1,
+
     height: 50,
     borderRadius: 12,
-    backgroundColor: "#5146E5",
+
+    backgroundColor: Theme.colors.primary,
+
     alignItems: "center",
     justifyContent: "center",
   },
 
   saveButtonText: {
-    color: "#FFFFFF",
+    color: Theme.colors.surface,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -533,4 +705,5 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.6,
   },
+
 });

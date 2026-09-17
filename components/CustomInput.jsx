@@ -3,7 +3,6 @@ import {
   View,
   TextInput,
   TouchableOpacity,
-  Text,
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,13 +14,28 @@ export default function CustomInput({
   onChangeText,
   secureTextEntry = false,
   keyboardType = "default",
+  leftIcon,
 }) {
   const [hidePassword, setHidePassword] = useState(secureTextEntry);
 
   return (
     <View style={styles.container}>
+      {leftIcon && (
+        <View style={styles.leftIcon}>
+          <Ionicons
+            name={leftIcon}
+            size={20}
+            color={Theme.colors.secondaryText}
+          />
+        </View>
+      )}
+
       <TextInput
-        style={styles.input}
+        style={[
+          styles.input,
+          leftIcon && styles.inputWithLeftIcon,
+          secureTextEntry && styles.inputWithPassword,
+        ]}
         placeholder={placeholder}
         placeholderTextColor={Theme.colors.secondaryText}
         value={value}
@@ -50,6 +64,7 @@ export default function CustomInput({
 const styles = StyleSheet.create({
   container: {
     marginVertical: Theme.spacing.sm,
+    position: "relative",
   },
 
   input: {
@@ -61,6 +76,21 @@ const styles = StyleSheet.create({
     fontSize: Theme.fonts.body,
     color: Theme.colors.text,
     paddingRight: 50,
+  },
+
+  inputWithLeftIcon: {
+    paddingLeft: 48,
+  },
+
+  inputWithPassword: {
+    paddingRight: 50,
+  },
+
+  leftIcon: {
+    position: "absolute",
+    left: 16,
+    top: 15,
+    zIndex: 1,
   },
 
   eye: {
