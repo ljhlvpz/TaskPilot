@@ -590,7 +590,7 @@ export default function Register() {
                 <Pressable disabled={loading}>
 
                   <Text style={styles.loginText}>
-                    {" "}Sign In
+                    {" "}Login
                   </Text>
 
                 </Pressable>

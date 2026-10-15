@@ -22,6 +22,7 @@ import { auth } from "../../firebase/firebaseConfig";
 import { getUserProfile } from "../../firebase/firestore";
 import { listenToUserTasks } from "../../services/taskService";
 
+
 export default function Dashboard() {
   const router = useRouter();
 

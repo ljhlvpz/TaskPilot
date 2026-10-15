@@ -466,7 +466,7 @@ export default function Login() {
                   disabled={loading}
                 >
                   <Text style={styles.registerText}>
-                    {" "}Sign Up
+                    {" "}Register
                   </Text>
                 </Pressable>
               </Link>

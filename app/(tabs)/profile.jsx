@@ -253,6 +253,42 @@ export default function Profile() {
         </View>
 
         <Text style={styles.sectionTitle}>
+          Security & Privacy
+        </Text>
+
+        <View style={styles.menuCard}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            activeOpacity={0.7}
+            onPress={() => router.push("/security-settings")}
+          >
+            <View style={styles.menuIcon}>
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={20}
+                color={Theme.colors.primary}
+              />
+            </View>
+
+            <View style={styles.menuContent}>
+              <Text style={styles.menuTitle}>
+                PIN & App Lock
+              </Text>
+
+              <Text style={styles.menuSubtitle}>
+                Manage your PIN and security preferences
+              </Text>
+            </View>
+
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={Theme.colors.secondaryText}
+            />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.sectionTitle}>
           Session
         </Text>
 
