@@ -15,6 +15,7 @@ import {
     Platform,
     StyleSheet,
     Text,
+    Keyboard,
     TextInput,
     TouchableOpacity,
     View,
@@ -643,8 +644,26 @@ const parseMoveTaskCommand = (message) => {
     };
 };
 export default function AssistantScreen() {
-  const { colors } = useAppTheme();
-  const styles = React.useMemo(() => make_styles(colors), [colors]);
+    // Reserve space for the floating navbar only while the keyboard is closed.
+    const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+    useEffect(() => {
+        const showSubscription = Keyboard.addListener(
+            "keyboardDidShow",
+            () => setKeyboardVisible(true)
+        );
+        const hideSubscription = Keyboard.addListener(
+            "keyboardDidHide",
+            () => setKeyboardVisible(false)
+        );
+        return () => {
+            showSubscription.remove();
+            hideSubscription.remove();
+        };
+    }, []);
+
+    const { colors } = useAppTheme();
+    const styles = React.useMemo(() => make_styles(colors), [colors]);
 
     // Prevent rapid taps from starting overlapping recognition sessions.
     const voiceBusyRef = useRef(false);
@@ -1045,7 +1064,7 @@ export default function AssistantScreen() {
     useEffect(() => {
         return () => {
             if (voiceActiveRef.current || voiceBusyRef.current) {
-                try { ExpoSpeechRecognitionModule.abort(); } catch (_) {}
+                try { ExpoSpeechRecognitionModule.abort(); } catch (_) { }
             }
             endVoiceTransition();
         };
@@ -1812,11 +1831,7 @@ export default function AssistantScreen() {
         >
             <KeyboardAvoidingView
                 style={styles.container}
-                behavior={
-                    Platform.OS === "ios"
-                        ? "padding"
-                        : "height"
-                }
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
                 keyboardVerticalOffset={
                     Platform.OS === "ios" ? 82 : 0
                 }
@@ -2161,7 +2176,14 @@ export default function AssistantScreen() {
                         </View>
                     </View>
                 )}
-                <View style={styles.inputSection}>
+                <View
+                    style={[
+                        styles.inputSection,
+                        {
+                            marginBottom: keyboardVisible ? 0 : 30,
+                        },
+                    ]}
+                >
                     <View style={styles.inputContainer}>
                         <TouchableOpacity
                             style={[
@@ -2229,6 +2251,7 @@ export default function AssistantScreen() {
                         important task details.
                     </Text>
                 </View>
+
             </KeyboardAvoidingView>
         </SafeAreaView>
     );
@@ -2531,12 +2554,13 @@ const make_styles = (colors) => StyleSheet.create({
     },
 
     inputSection: {
-        paddingHorizontal: 14,
-        paddingTop: 10,
-        paddingBottom: Platform.OS === "ios" ? 5 : 11,
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        paddingBottom: 12,
+
+        backgroundColor: colors.background,
         borderTopWidth: 1,
         borderTopColor: colors.border,
-        backgroundColor: colors.surface,
     },
 
     voiceButtonListening: {

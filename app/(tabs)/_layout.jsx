@@ -10,14 +10,14 @@ import {
   useWindowDimensions,
 } from "react-native";
 
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppTheme } from "../../contexts/ThemeContext";
 
 // =============================================
-// TAB CONFIGURATION
+// NAVIGATION CONFIGURATION
 // =============================================
 
 const TAB_CONFIG = {
@@ -25,12 +25,6 @@ const TAB_CONFIG = {
     icon: "home-outline",
     activeIcon: "home",
     label: "Home",
-  },
-
-  tasks: {
-    icon: "checkmark-circle-outline",
-    activeIcon: "checkmark-circle",
-    label: "Tasks",
   },
 
   calendar: {
@@ -45,12 +39,6 @@ const TAB_CONFIG = {
     label: "Assistant",
   },
 
-  notes: {
-    icon: "document-text-outline",
-    activeIcon: "document-text",
-    label: "Notes",
-  },
-
   profile: {
     icon: "person-outline",
     activeIcon: "person",
@@ -58,8 +46,15 @@ const TAB_CONFIG = {
   },
 };
 
+const TAB_ORDER = [
+  "dashboard",
+  "calendar",
+  "assistant",
+  "profile",
+];
+
 // =============================================
-// ANIMATED TAB
+// ANIMATED REGULAR TAB
 // =============================================
 
 function AnimatedTab({
@@ -67,8 +62,7 @@ function AnimatedTab({
   focused,
   onPress,
   onLongPress,
-  activeWidth,
-  inactiveWidth,
+  width,
   palette,
 }) {
   const config = TAB_CONFIG[route];
@@ -80,7 +74,7 @@ function AnimatedTab({
   useEffect(() => {
     Animated.timing(progress, {
       toValue: focused ? 1 : 0,
-      duration: 280,
+      duration: 260,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
@@ -88,13 +82,6 @@ function AnimatedTab({
 
   if (!config) return null;
 
-  // Expand the active tab and shrink the inactive tab.
-  const animatedWidth = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [inactiveWidth, activeWidth],
-  });
-
-  // Animate the green selected background.
   const backgroundColor = progress.interpolate({
     inputRange: [0, 1],
     outputRange: [
@@ -103,77 +90,64 @@ function AnimatedTab({
     ],
   });
 
-  // Animate the label's available width.
-  // This prevents invisible labels from taking up space.
-  const labelWidth = progress.interpolate({
+  const iconScale = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 48],
+    outputRange: [1, 1.08],
   });
 
   const labelOpacity = progress.interpolate({
-    inputRange: [0, 0.65, 1],
+    inputRange: [0, 0.45, 1],
     outputRange: [0, 0, 1],
   });
 
-  const labelTranslate = progress.interpolate({
+  // Collapse the label vertically so inactive icons remain centered.
+  const labelHeight = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [-5, 0],
+    outputRange: [0, 14],
   });
 
   return (
-    <Animated.View
-      style={[
-        styles.tabWrapper,
-        {
-          width: animatedWidth,
-        },
-      ]}
-    >
+    <View style={[styles.tabWrapper, { width }]}>
       <Pressable
         onPress={onPress}
         onLongPress={onLongPress}
         accessibilityRole="tab"
-        accessibilityState={{
-          selected: focused,
-        }}
+        accessibilityState={{ selected: focused }}
         accessibilityLabel={config.label}
         style={styles.pressable}
       >
         <Animated.View
           style={[
             styles.tabItem,
-            {
-              backgroundColor,
-            },
+            { backgroundColor },
           ]}
         >
-          <View style={styles.iconContainer}>
+          <Animated.View
+            style={{
+              transform: [{ scale: iconScale }],
+            }}
+          >
             <Ionicons
               name={
                 focused
                   ? config.activeIcon
                   : config.icon
               }
-              size={20}
+              size={21}
               color={
                 focused
                   ? palette.activeIcon
                   : palette.inactiveIcon
               }
             />
-          </View>
+          </Animated.View>
 
           <Animated.View
             style={[
               styles.labelContainer,
               {
-                width: labelWidth,
+                height: labelHeight,
                 opacity: labelOpacity,
-                transform: [
-                  {
-                    translateX: labelTranslate,
-                  },
-                ],
               },
             ]}
           >
@@ -181,9 +155,7 @@ function AnimatedTab({
               numberOfLines={1}
               style={[
                 styles.tabLabel,
-                {
-                  color: palette.activeText,
-                },
+                { color: palette.activeText },
               ]}
             >
               {config.label}
@@ -191,7 +163,59 @@ function AnimatedTab({
           </Animated.View>
         </Animated.View>
       </Pressable>
-    </Animated.View>
+    </View>
+  );
+}
+
+// =============================================
+// BIG CENTER ADD TASK BUTTON
+// =============================================
+
+function AddTaskButton({ width, palette }) {
+  const router = useRouter();
+
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const animateTo = (value) => {
+    Animated.spring(scale, {
+      toValue: value,
+      friction: 5,
+      tension: 180,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <View style={[styles.centerSlot, { width }]}>
+      <Animated.View
+        style={[
+          styles.addButtonAnimated,
+          { transform: [{ scale }] },
+        ]}
+      >
+        <Pressable
+          onPress={() => router.push("/create-task")}
+          onPressIn={() => animateTo(0.9)}
+          onPressOut={() => animateTo(1)}
+          accessibilityRole="button"
+          accessibilityLabel="Add Task"
+          style={[
+            styles.addButton,
+            {
+              backgroundColor:
+                palette.activeBackground,
+              borderColor: palette.barBackground,
+            },
+          ]}
+        >
+          <Ionicons
+            name="add"
+            size={35}
+            color={palette.activeIcon}
+          />
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -225,40 +249,73 @@ function CustomTabBar({ state, navigation }) {
       : "transparent",
   };
 
-  const visibleRoutes = state.routes.filter(
-    (route) => TAB_CONFIG[route.name]
-  );
-
-  const count = visibleRoutes.length;
-
-  // Account for screen margins, bar borders, and padding.
+  // The bar has 10px margins on each side,
+  // 8px padding on each side, and 1px borders.
   const availableWidth = Math.max(
-    0,
+    250,
     screenWidth - 38
   );
 
-  // Selected tab stays compact.
-  const activeWidth = Math.min(
-    88,
-    availableWidth * 0.26
+  const centerWidth = Math.min(
+    76,
+    availableWidth * 0.22
   );
 
-  // Remaining space is divided evenly between other tabs.
-  const inactiveWidth =
-    count > 1
-      ? (availableWidth - activeWidth) / (count - 1)
-      : availableWidth;
+  const regularWidth =
+    (availableWidth - centerWidth) / 4;
+
+  const renderTab = (routeName) => {
+    const route = state.routes.find(
+      (item) => item.name === routeName
+    );
+
+    if (!route) return null;
+
+    const routeIndex = state.routes.findIndex(
+      (item) => item.key === route.key
+    );
+
+    const focused = state.index === routeIndex;
+
+    const onPress = () => {
+      const event = navigation.emit({
+        type: "tabPress",
+        target: route.key,
+        canPreventDefault: true,
+      });
+
+      if (!focused && !event.defaultPrevented) {
+        navigation.navigate(route.name);
+      }
+    };
+
+    const onLongPress = () => {
+      navigation.emit({
+        type: "tabLongPress",
+        target: route.key,
+      });
+    };
+
+    return (
+      <AnimatedTab
+        key={route.key}
+        route={routeName}
+        focused={focused}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        width={regularWidth}
+        palette={palette}
+      />
+    );
+  };
 
   return (
     <View
+      pointerEvents="box-none"
       style={[
         styles.container,
         {
-          backgroundColor: palette.background,
-          paddingBottom: Math.max(
-            insets.bottom,
-            8
-          ),
+          paddingBottom: Math.max(insets.bottom, 8),
         },
       ]}
     >
@@ -271,49 +328,16 @@ function CustomTabBar({ state, navigation }) {
           },
         ]}
       >
-        {visibleRoutes.map((route) => {
-          const routeIndex = state.routes.findIndex(
-            (item) => item.key === route.key
-          );
+        {renderTab(TAB_ORDER[0])}
+        {renderTab(TAB_ORDER[1])}
 
-          const focused =
-            state.index === routeIndex;
+        <AddTaskButton
+          width={centerWidth}
+          palette={palette}
+        />
 
-          const onPress = () => {
-            const event = navigation.emit({
-              type: "tabPress",
-              target: route.key,
-              canPreventDefault: true,
-            });
-
-            if (
-              !focused &&
-              !event.defaultPrevented
-            ) {
-              navigation.navigate(route.name);
-            }
-          };
-
-          const onLongPress = () => {
-            navigation.emit({
-              type: "tabLongPress",
-              target: route.key,
-            });
-          };
-
-          return (
-            <AnimatedTab
-              key={route.key}
-              route={route.name}
-              focused={focused}
-              onPress={onPress}
-              onLongPress={onLongPress}
-              activeWidth={activeWidth}
-              inactiveWidth={inactiveWidth}
-              palette={palette}
-            />
-          );
-        })}
+        {renderTab(TAB_ORDER[2])}
+        {renderTab(TAB_ORDER[3])}
       </View>
     </View>
   );
@@ -331,16 +355,17 @@ export default function TabsLayout() {
       )}
       screenOptions={{
         headerShown: false,
+        tabBarStyle: {
+          position: "absolute",
+          backgroundColor: "transparent",
+          borderTopWidth: 0,
+          elevation: 0,
+        },
       }}
     >
       <Tabs.Screen
         name="dashboard"
         options={{ title: "Home" }}
-      />
-
-      <Tabs.Screen
-        name="tasks"
-        options={{ title: "Tasks" }}
       />
 
       <Tabs.Screen
@@ -354,13 +379,26 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
-        name="notes"
-        options={{ title: "Notes" }}
+        name="profile"
+        options={{ title: "Profile" }}
+      />
+
+      {/* Keep these screens accessible through
+          shortcuts, but hide them from the tab bar. */}
+      <Tabs.Screen
+        name="tasks"
+        options={{
+          title: "Tasks",
+          href: null,
+        }}
       />
 
       <Tabs.Screen
-        name="profile"
-        options={{ title: "Profile" }}
+        name="notes"
+        options={{
+          title: "Notes",
+          href: null,
+        }}
       />
     </Tabs>
   );
@@ -372,8 +410,15 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 8,
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+
+    paddingTop: 16,
     paddingHorizontal: 10,
+
+    backgroundColor: "transparent",
   },
 
   tabBar: {
@@ -412,31 +457,60 @@ const styles = StyleSheet.create({
 
   tabItem: {
     width: "100%",
-    height: 44,
+    height: 48,
     borderRadius: 22,
-
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-
-    paddingHorizontal: 0,
-  },
-
-  iconContainer: {
-    width: 24,
-    height: 30,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
   },
 
   labelContainer: {
     overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
   },
 
   tabLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "700",
-    marginLeft: 3,
+    textAlign: "center",
+    includeFontPadding: false,
+  },
+
+  centerSlot: {
+    height: 58,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  addButtonAnimated: {
+    position: "absolute",
+    top: -17,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+    elevation: 10,
+  },
+
+  addButton: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+
+    borderWidth: 5,
+
+    alignItems: "center",
+    justifyContent: "center",
+
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+
+    elevation: 8,
   },
 });

@@ -20,11 +20,16 @@ import { Theme } from "../constants/theme";
 import { auth } from "../firebase/firebaseConfig";
 import { addUserTask } from "../services/taskService";
 import { scheduleTaskReminder } from "../services/notificationService";
+import TaskSaveAnimation from "../components/TaskSaveAnimation";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import {
     useLocalSearchParams,
     useRouter,
 } from "expo-router";
+
+// Show all 92 saving frames at approximately 30 FPS before success.
+const MIN_SAVING_DURATION_MS = 3200;
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const CATEGORIES = [
     {
@@ -85,6 +90,8 @@ export default function CreateTask() {
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [animationPhase, setAnimationPhase] = useState("idle");
+    const [successMessage, setSuccessMessage] = useState("");
 
     useEffect(() => {
         if (!params.dueDate) {
@@ -212,8 +219,14 @@ export default function CreateTask() {
             dueTime: dueTime ? formatTime(dueTime) : null,
         };
 
+        if (saving || animationPhase !== "idle") return;
+
+        const savingStartedAt = Date.now();
+
         try {
             setSaving(true);
+            Keyboard.dismiss();
+            setAnimationPhase("saving");
 
             // First, save the task to Firebase.
             const taskId = await addUserTask(
@@ -244,21 +257,23 @@ export default function CreateTask() {
                 taskData.dueDate && taskData.dueTime
             );
 
-            Alert.alert(
-                "Task added!",
+            setSuccessMessage(
                 reminderScheduled
                     ? "Your task was saved and its reminder is scheduled."
                     : hasSchedule
                         ? "Your task was saved, but no reminder was scheduled. Check your notification permissions and reminder time."
-                        : "Your new task is ready.",
-                [
-                    {
-                        text: "Great",
-                        onPress: () => router.back(),
-                    },
-                ]
+                        : "Your new task is ready."
             );
+            // Give the PNG saving sequence time to animate, even when
+            // Firebase and notification scheduling finish very quickly.
+            const elapsed = Date.now() - savingStartedAt;
+            if (elapsed < MIN_SAVING_DURATION_MS) {
+                await wait(MIN_SAVING_DURATION_MS - elapsed);
+            }
+
+            setAnimationPhase("success");
         } catch (error) {
+            setAnimationPhase("idle");
             console.error("Create task error:", error);
 
             Alert.alert(
@@ -268,6 +283,13 @@ export default function CreateTask() {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleSuccessFinished = () => {
+        setAnimationPhase("idle");
+        Alert.alert("Task added!", successMessage, [
+            { text: "Great", onPress: () => router.back() },
+        ]);
     };
 
     return (
@@ -296,6 +318,21 @@ export default function CreateTask() {
                             Add something you want to accomplish.
                         </Text>
                     </View>
+
+                    <TouchableOpacity
+                        style={styles.headerTaskListButton}
+                        onPress={() => router.push("/(tabs)/tasks")}
+                        disabled={saving || animationPhase !== "idle"}
+                        activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel="Open Task List"
+                    >
+                        <Ionicons
+                            name="list-outline"
+                            size={24}
+                            color={colors.primary}
+                        />
+                    </TouchableOpacity>
                 </View>
 
                 <ScrollView
@@ -615,7 +652,7 @@ export default function CreateTask() {
                             saving && styles.saveButtonDisabled,
                         ]}
                         onPress={handleSaveTask}
-                        disabled={saving}
+                        disabled={saving || animationPhase !== "idle"}
                         activeOpacity={0.8}
                     >
                         {saving ? (
@@ -639,19 +676,36 @@ export default function CreateTask() {
                     <TouchableOpacity
                         style={styles.cancelButton}
                         onPress={() => router.back()}
-                        disabled={saving}
+                        disabled={saving || animationPhase !== "idle"}
                         activeOpacity={0.75}
                     >
                         <Text style={styles.cancelButtonText}>Cancel</Text>
                     </TouchableOpacity>
+
                 </ScrollView>
             </KeyboardAvoidingView>
+            <TaskSaveAnimation
+                phase={animationPhase}
+                onSuccessFinished={handleSuccessFinished}
+            />
         </SafeAreaView>
     );
 }
 
 
 const make_styles = (colors) => StyleSheet.create({
+    headerTaskListButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+        alignItems: "center",
+        justifyContent: "center",
+        marginLeft: 8,
+    },
+
     pickerText: {
         flex: 1,
         marginLeft: 10,
@@ -738,6 +792,7 @@ const make_styles = (colors) => StyleSheet.create({
 
     headerTextContainer: {
         flex: 1,
+        minWidth: 0,
     },
 
     headerTitle: {

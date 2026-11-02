@@ -42,7 +42,7 @@ export default function Tasks() {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    let unsubscribeTasks = () => {};
+    let unsubscribeTasks = () => { };
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       unsubscribeTasks();
@@ -153,31 +153,27 @@ export default function Tasks() {
     }
   };
 
-  const handleAddTask = () => {
-  router.push("/create-task");
-};
-
   const renderTask = ({ item }) => {
-  return (
-    <TaskCard
-      task={item}
-      updating={updatingTaskId === item.id}
-      onToggle={() => handleToggleTask(item)}
-      onOpen={() =>
-        router.push({
-          pathname: "/task/[id]",
-          params: { id: item.id },
-        })
-      }
-    />
-  );
-};
+    return (
+      <TaskCard
+        task={item}
+        updating={updatingTaskId === item.id}
+        onToggle={() => handleToggleTask(item)}
+        onOpen={() =>
+          router.push({
+            pathname: "/task/[id]",
+            params: { id: item.id },
+          })
+        }
+      />
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <View style={styles.container}>
         <View style={styles.header}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.title}>My Tasks</Text>
 
             <Text style={styles.subtitle}>
@@ -187,10 +183,16 @@ export default function Tasks() {
 
           <TouchableOpacity
             style={styles.headerAddButton}
-            onPress={handleAddTask}
-            activeOpacity={0.75}
+            onPress={() => router.push("/create-task")}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Add task"
           >
-            <Ionicons name="add" size={25} color="#FFFFFF" />
+            <Ionicons
+              name="add"
+              size={26}
+              color="#FFFFFF"
+            />
           </TouchableOpacity>
         </View>
 
@@ -316,21 +318,11 @@ export default function Tasks() {
                 hasTasks={tasks.length > 0}
                 searchText={searchText}
                 selectedFilter={selectedFilter}
-                onAddTask={handleAddTask}
               />
             }
           />
         )}
 
-        {!loading && !errorMessage && (
-          <TouchableOpacity
-            style={styles.floatingButton}
-            onPress={handleAddTask}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="add" size={30} color="#FFFFFF" />
-          </TouchableOpacity>
-        )}
       </View>
     </SafeAreaView>
   );
@@ -369,22 +361,22 @@ function TaskCard({ task, updating, onToggle, onOpen }) {
 
   return (
     <TouchableOpacity
-  style={styles.taskCard}
-  onPress={onOpen}
-  activeOpacity={0.8}
->
+      style={styles.taskCard}
+      onPress={onOpen}
+      activeOpacity={0.8}
+    >
       <TouchableOpacity
-  style={[
-    styles.checkbox,
-    task.completed && styles.checkboxCompleted,
-  ]}
-  onPress={(event) => {
-    event.stopPropagation();
-    onToggle();
-  }}
-  disabled={updating}
-  activeOpacity={0.7}
->
+        style={[
+          styles.checkbox,
+          task.completed && styles.checkboxCompleted,
+        ]}
+        onPress={(event) => {
+          event.stopPropagation();
+          onToggle();
+        }}
+        disabled={updating}
+        activeOpacity={0.7}
+      >
         {updating ? (
           <ActivityIndicator
             size="small"
@@ -469,7 +461,6 @@ function TaskEmptyState({
   hasTasks,
   searchText,
   selectedFilter,
-  onAddTask,
 }) {
   const { colors } = useAppTheme();
   const styles = React.useMemo(() => make_styles(colors), [colors]);
@@ -511,18 +502,9 @@ function TaskEmptyState({
 
       <Text style={styles.emptyDescription}>
         Every achievement starts with one small task. Add your first one
-        when you&apos;re ready.
+        using the + button in the bottom navigation.
       </Text>
 
-      <TouchableOpacity
-        style={styles.emptyButton}
-        onPress={onAddTask}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={20} color="#FFFFFF" />
-
-        <Text style={styles.emptyButtonText}>Add My First Task</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -571,15 +553,6 @@ const make_styles = (colors) => StyleSheet.create({
     marginTop: 4,
     fontSize: 14,
     color: colors.secondaryText,
-  },
-
-  headerAddButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 15,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.primary,
   },
 
   summaryContainer: {
@@ -774,6 +747,15 @@ const make_styles = (colors) => StyleSheet.create({
     paddingHorizontal: 30,
     paddingBottom: 80,
   },
+  headerAddButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primary,
+    marginLeft: 12,
+  },
 
   loadingText: {
     marginTop: 14,
@@ -814,40 +796,4 @@ const make_styles = (colors) => StyleSheet.create({
     color: colors.secondaryText,
   },
 
-  emptyButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    marginTop: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: colors.primary,
-  },
-
-  emptyButtonText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-
-  floatingButton: {
-    position: "absolute",
-    right: 20,
-    bottom: 22,
-    width: 58,
-    height: 58,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 20,
-    elevation: 7,
-    shadowColor: "#000000",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    backgroundColor: colors.primary,
-  },
 });

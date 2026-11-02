@@ -311,6 +311,9 @@ export default function Dashboard() {
   const navigateToAssistant = () => {
     router.push("/(tabs)/assistant");
   };
+  const navigateToNotes = () => {
+    router.push("/(tabs)/notes");
+  };
   const navigateToCreateTask = () => {
     router.push("/create-task");
   };
@@ -500,9 +503,9 @@ export default function Dashboard() {
 
         <View style={styles.quickActionsRow}>
           <QuickAction
-            icon="add-circle-outline"
-            label="Add Task"
-            onPress={navigateToCreateTask}
+            icon="list-outline"
+            label="Task List"
+            onPress={navigateToTasks}
           />
 
           <QuickAction
@@ -512,9 +515,9 @@ export default function Dashboard() {
           />
 
           <QuickAction
-            icon="sparkles-outline"
-            label="AI Assistant"
-            onPress={navigateToAssistant}
+            icon="document-text-outline"
+            label="Notes"
+            onPress={navigateToNotes}
           />
         </View>
 
