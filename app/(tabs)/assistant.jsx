@@ -641,31 +641,71 @@ const parseMoveTaskCommand = (message) => {
     };
 };
 export default function AssistantScreen() {
+    // Prevent rapid taps from starting overlapping recognition sessions.
+    const voiceBusyRef = useRef(false);
+    const voiceActiveRef = useRef(false);
+    const voiceTransitionRef = useRef(false);
+    const voiceStopRequestedRef = useRef(false);
+
+    const endVoiceTransition = () => {
+        if (voiceTransitionRef.current) {
+            voiceTransitionRef.current = false;
+            DeviceEventEmitter.emit("taskpilot-voice-transition", "end");
+        }
+    };
+
+    const stopVoiceRecognition = async () => {
+        if (voiceStopRequestedRef.current) return;
+        voiceStopRequestedRef.current = true;
+        try {
+            // stop() allows the recognizer to deliver the final transcript.
+            await ExpoSpeechRecognitionModule.stop();
+        } catch (error) {
+            console.warn("Unable to stop speech recognition:", error);
+            voiceActiveRef.current = false;
+            voiceBusyRef.current = false;
+            voiceStopRequestedRef.current = false;
+            setIsListening(false);
+            endVoiceTransition();
+        }
+    };
+
     const startVoiceRecognition = async () => {
+        if (voiceBusyRef.current || voiceActiveRef.current) return;
+        voiceBusyRef.current = true;
+        voiceStopRequestedRef.current = false;
+        voiceTransitionRef.current = true;
         DeviceEventEmitter.emit("taskpilot-voice-transition", "begin");
         try {
-            const result =
-                await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-
+            const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
             if (!result.granted) {
-                DeviceEventEmitter.emit("taskpilot-voice-transition", "end");
+                voiceBusyRef.current = false;
+                endVoiceTransition();
+                Alert.alert("Microphone permission", "Please allow microphone access to use voice commands.");
                 return;
             }
-
-            ExpoSpeechRecognitionModule.start({
+            // Start is handled asynchronously by native recognition events.
+            await ExpoSpeechRecognitionModule.start({
                 lang: "en-US",
                 interimResults: true,
                 continuous: false,
             });
         } catch (error) {
-            DeviceEventEmitter.emit("taskpilot-voice-transition", "end");
-            console.error(
-                "Unable to start speech recognition:",
-                error
-            );
-
+            console.error("Unable to start speech recognition:", error);
+            voiceBusyRef.current = false;
+            voiceActiveRef.current = false;
+            voiceStopRequestedRef.current = false;
             setIsListening(false);
+            endVoiceTransition();
             Alert.alert("Microphone unavailable", "Speech recognition could not start. You can still type commands.");
+        }
+    };
+
+    const toggleVoiceRecognition = () => {
+        if (voiceActiveRef.current || isListening) {
+            stopVoiceRecognition();
+        } else if (!voiceBusyRef.current) {
+            startVoiceRecognition();
         }
     };
 
@@ -967,35 +1007,44 @@ export default function AssistantScreen() {
     };
 
     useSpeechRecognitionEvent("start", () => {
+        voiceActiveRef.current = true;
+        voiceBusyRef.current = false;
+        voiceStopRequestedRef.current = false;
         setIsListening(true);
     });
 
     useSpeechRecognitionEvent("end", () => {
+        voiceActiveRef.current = false;
+        voiceBusyRef.current = false;
+        voiceStopRequestedRef.current = false;
         setIsListening(false);
+        endVoiceTransition();
     });
 
     useSpeechRecognitionEvent("error", (event) => {
+        voiceActiveRef.current = false;
+        voiceBusyRef.current = false;
+        voiceStopRequestedRef.current = false;
         setIsListening(false);
-
-        if (event.error === "no-speech") {
-            console.log("Speech recognition ended because no speech was detected.");
-            return;
-        }
-
+        endVoiceTransition();
+        if (event.error === "no-speech" || event.error === "aborted") return;
         console.error("Speech recognition error:", event);
         Alert.alert("Voice recognition", "Voice recognition encountered an error. Please try typing your command.");
     });
 
     useSpeechRecognitionEvent("result", (event) => {
-        const transcript =
-            event.results?.[0]?.transcript?.trim();
-
-        if (!transcript) {
-            return;
-        }
-
-        setInput(transcript);
+        const transcript = event.results?.[0]?.transcript?.trim();
+        if (transcript) setInput(transcript);
     });
+
+    useEffect(() => {
+        return () => {
+            if (voiceActiveRef.current || voiceBusyRef.current) {
+                try { ExpoSpeechRecognitionModule.abort(); } catch (_) {}
+            }
+            endVoiceTransition();
+        };
+    }, []);
 
     const sendMessage = async (customMessage) => {
         const cleanMessage = (
@@ -2115,12 +2164,12 @@ export default function AssistantScreen() {
                                 isListening && styles.voiceButtonListening,
                             ]}
                             activeOpacity={0.75}
-                            onPress={startVoiceRecognition}
+                            onPress={toggleVoiceRecognition}
                         >
                             <Ionicons
                                 name={
                                     isListening
-                                        ? "mic"
+                                        ? "stop-circle"
                                         : "mic-outline"
                                 }
                                 size={22}

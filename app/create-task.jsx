@@ -227,7 +227,7 @@ export default function CreateTask() {
                     taskData
                 );
 
-                reminderScheduled = Boolean(notificationId);
+                reminderScheduled = Array.isArray(notificationId) ? notificationId.length > 0 : Boolean(notificationId);
             } catch (notificationError) {
                 console.error(
                     "Task reminder scheduling error:",

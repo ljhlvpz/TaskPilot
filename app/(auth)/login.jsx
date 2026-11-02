@@ -439,9 +439,11 @@ export default function Login() {
               disabled={loading}
             >
 
-              <Text style={styles.googleG}>
-                G
-              </Text>
+              <Image
+                source={require("../../assets/images/google icon.png")}
+                style={styles.googleIcon}
+                resizeMode="contain"
+              />
 
               <Text style={styles.googleText}>
                 Continue with Google
@@ -704,12 +706,11 @@ const styles = StyleSheet.create({
     marginBottom: 25,
   },
 
-  googleG: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#4285F4",
-    marginRight: 10,
-  },
+  googleIcon: {
+  width: 22,
+  height: 22,
+  marginRight: 10,
+},
 
   googleText: {
     color: COLORS.charcoal,

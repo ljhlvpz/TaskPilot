@@ -9,17 +9,20 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 
 import { Theme } from "../../constants/theme";
+import { useAppTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../hooks/useAuth";
 import { getUserProfile } from "../../firebase/firestore";
 import { logoutUser } from "../../services/authService";
 
 export default function Profile() {
   const router = useRouter();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const { user, authLoading } = useAuth();
 
@@ -121,7 +124,7 @@ export default function Profile() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator
             size="large"
-            color={Theme.colors.primary}
+            color={colors.primary}
           />
 
           <Text style={styles.loadingText}>
@@ -201,7 +204,7 @@ export default function Profile() {
               <Ionicons
                 name="person-outline"
                 size={20}
-                color={Theme.colors.primary}
+                color={colors.primary}
               />
             </View>
 
@@ -218,7 +221,7 @@ export default function Profile() {
             <Ionicons
               name="chevron-forward"
               size={20}
-              color={Theme.colors.secondaryText}
+              color={colors.secondaryText}
             />
           </TouchableOpacity>
 
@@ -227,18 +230,13 @@ export default function Profile() {
           <TouchableOpacity
             style={styles.menuItem}
             activeOpacity={0.7}
-            onPress={() => {
-              Alert.alert(
-                "Preferences",
-                "Task reminders use your device notification settings. You can manage TaskPilot notification permissions in Android Settings. More customization options are coming soon."
-              );
-            }}
+            onPress={() => router.push("/preferences")}
           >
             <View style={styles.menuIcon}>
               <Ionicons
                 name="settings-outline"
                 size={20}
-                color={Theme.colors.primary}
+                color={colors.primary}
               />
             </View>
 
@@ -255,7 +253,7 @@ export default function Profile() {
             <Ionicons
               name="chevron-forward"
               size={20}
-              color={Theme.colors.secondaryText}
+              color={colors.secondaryText}
             />
           </TouchableOpacity>
         </View>
@@ -274,7 +272,7 @@ export default function Profile() {
               <Ionicons
                 name="shield-checkmark-outline"
                 size={20}
-                color={Theme.colors.primary}
+                color={colors.primary}
               />
             </View>
 
@@ -291,7 +289,7 @@ export default function Profile() {
             <Ionicons
               name="chevron-forward"
               size={20}
-              color={Theme.colors.secondaryText}
+              color={colors.secondaryText}
             />
           </TouchableOpacity>
         </View>
@@ -309,13 +307,13 @@ export default function Profile() {
           {loggingOut ? (
             <ActivityIndicator
               size="small"
-              color={Theme.colors.error}
+              color={colors.error}
             />
           ) : (
             <Ionicons
               name="log-out-outline"
               size={20}
-              color={Theme.colors.error}
+              color={colors.error}
             />
           )}
 
@@ -334,10 +332,10 @@ export default function Profile() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
   },
 
   container: {
@@ -357,13 +355,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: Theme.fonts.title,
     fontWeight: "800",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   headerSubtitle: {
     marginTop: 5,
     fontSize: Theme.fonts.body,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   profileCard: {
@@ -371,9 +369,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 18,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: Theme.radius.lg,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   avatar: {
@@ -382,7 +380,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 32,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
   },
 
   avatarText: {
@@ -399,13 +397,13 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 19,
     fontWeight: "800",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   email: {
     marginTop: 4,
     fontSize: 13,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   sectionTitle: {
@@ -413,14 +411,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     fontSize: 14,
     fontWeight: "800",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   menuCard: {
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: Theme.radius.lg,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     overflow: "hidden",
   },
 
@@ -436,7 +434,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 12,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
   },
 
   menuContent: {
@@ -447,19 +445,19 @@ const styles = StyleSheet.create({
   menuTitle: {
     fontSize: 14,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   menuSubtitle: {
     marginTop: 2,
     fontSize: 11,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   divider: {
     height: 1,
     marginLeft: 67,
-    backgroundColor: Theme.colors.border,
+    backgroundColor: colors.border,
   },
 
   logoutButton: {
@@ -469,22 +467,22 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: Theme.colors.error,
+    borderColor: colors.error,
     borderRadius: Theme.radius.lg,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   logoutText: {
     fontSize: 14,
     fontWeight: "800",
-    color: Theme.colors.error,
+    color: colors.error,
   },
 
   versionText: {
     marginTop: 22,
     textAlign: "center",
     fontSize: 11,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   loadingContainer: {
@@ -496,6 +494,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: Theme.fonts.body,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 });

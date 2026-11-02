@@ -337,7 +337,7 @@ const handleSaveTask = async () => {
         }
       );
 
-      reminderScheduled = Boolean(notificationId);
+      reminderScheduled = Array.isArray(notificationId) ? notificationId.length > 0 : Boolean(notificationId);
     } catch (error) {
       console.error(
         "Unable to update task reminder:",

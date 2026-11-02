@@ -19,6 +19,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Notifications from "expo-notifications";
+import { capturePresentedNotifications, markInboxRead, readNotificationInbox, saveReceivedNotification } from "../../services/notificationInbox";
+import { syncTaskNotifications } from "../../services/notificationService";
 
 import ScreenContainer from "../../components/ScreenContainer";
 import { Theme } from "../../constants/theme";
@@ -38,8 +40,7 @@ export default function Dashboard() {
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [notificationLoading, setNotificationLoading] = useState(false);
-  const [scheduledReminders, setScheduledReminders] = useState([]);
-  const [deliveredReminders, setDeliveredReminders] = useState([]);
+  const [inboxReminders, setInboxReminders] = useState([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -113,6 +114,9 @@ export default function Dashboard() {
       currentUser.uid,
       (receivedTasks) => {
         setTasks(receivedTasks);
+        syncTaskNotifications(currentUser.uid, receivedTasks).catch((error) =>
+          console.error("Notification synchronization error:", error)
+        );
         setLoadingTasks(false);
       },
       (error) => {
@@ -220,17 +224,9 @@ export default function Dashboard() {
     setNotificationLoading(true);
     try {
       const uid = auth.currentUser?.uid;
-      const [scheduled, delivered] = await Promise.all([
-        Notifications.getAllScheduledNotificationsAsync(),
-        Notifications.getPresentedNotificationsAsync(),
-      ]);
-      setScheduledReminders(scheduled.filter((n) =>
-        n.content.data?.type === "task-reminder" && n.content.data?.userId === uid
-      ));
-      setDeliveredReminders(delivered.filter((n) =>
-        n.request.content.data?.type === "task-reminder" &&
-        n.request.content.data?.userId === uid
-      ));
+      if (!uid) { setInboxReminders([]); return; }
+      await capturePresentedNotifications(uid);
+      setInboxReminders(await readNotificationInbox(uid));
     } catch (error) {
       console.error("Dashboard notifications error:", error);
       Alert.alert("Notifications", "Could not load reminders. Please try again.");
@@ -239,14 +235,35 @@ export default function Dashboard() {
     }
   };
 
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener(async (notification) => {
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
+      try {
+        await saveReceivedNotification(uid, notification);
+        if (notificationOpen) setInboxReminders(await readNotificationInbox(uid));
+      } catch (error) { console.warn("Notification inbox update:", error); }
+    });
+    return () => subscription.remove();
+  }, [notificationOpen]);
+
+  const markAllNotificationsRead = async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    await markInboxRead(uid);
+    setInboxReminders(await readNotificationInbox(uid));
+  };
+
   const showNotificationInfo = () => {
     setNotificationOpen(true);
     loadNotifications();
   };
 
-  const openReminderTask = (taskId) => {
+  const openReminderTask = async (item) => {
+    const uid = auth.currentUser?.uid;
+    if (uid) await markInboxRead(uid, item.id);
     setNotificationOpen(false);
-    if (taskId) router.push(`/task/${taskId}`);
+    if (item.taskId) router.push(`/task/${item.taskId}`);
   };
 
   const navigateToTasks = () => {
@@ -319,36 +336,31 @@ export default function Dashboard() {
           <View style={notificationStyles.overlay}>
             <View style={notificationStyles.sheet}>
               <View style={notificationStyles.header}>
-                <Text style={notificationStyles.heading}>Task Reminders 🔔</Text>
+                <Text style={notificationStyles.heading}>TaskPilot Notifications 🔔</Text>
                 <TouchableOpacity onPress={() => setNotificationOpen(false)} accessibilityLabel="Close notifications">
                   <Ionicons name="close" size={25} color={Theme.colors.text} />
                 </TouchableOpacity>
               </View>
-              <Text style={notificationStyles.help}>Delivered reminders and reminders scheduled on this device.</Text>
+              <Text style={notificationStyles.help}>Received task reminders and daily summaries saved on this device. Future scheduled reminders are not shown.</Text>
+              <TouchableOpacity onPress={markAllNotificationsRead} accessibilityLabel="Mark all notifications as read">
+                <Text style={notificationStyles.section}>Mark all as read</Text>
+              </TouchableOpacity>
               {notificationLoading ? <ActivityIndicator color={Theme.colors.primary} /> : (
                 <ScrollView style={notificationStyles.list}>
-                  <Text style={notificationStyles.section}>Delivered ({deliveredReminders.length})</Text>
-                  {deliveredReminders.length === 0 && <Text style={notificationStyles.empty}>No delivered task reminders yet.</Text>}
-                  {deliveredReminders.map((item) => (
-                    <TouchableOpacity key={item.request.identifier} style={notificationStyles.item}
-                      onPress={() => openReminderTask(item.request.content.data?.taskId)}>
-                      <Text style={notificationStyles.itemTitle}>{item.request.content.title || "Task reminder"}</Text>
-                      <Text style={notificationStyles.itemBody}>{item.request.content.body}</Text>
-                    </TouchableOpacity>
-                  ))}
-                  <Text style={notificationStyles.section}>Scheduled ({scheduledReminders.length})</Text>
-                  {scheduledReminders.length === 0 && <Text style={notificationStyles.empty}>No upcoming reminders scheduled on this device.</Text>}
-                  {scheduledReminders.map((item) => (
-                    <TouchableOpacity key={item.identifier} style={notificationStyles.item}
-                      onPress={() => openReminderTask(item.content.data?.taskId)}>
-                      <Text style={notificationStyles.itemTitle}>{item.content.title || "Upcoming reminder"}</Text>
-                      <Text style={notificationStyles.itemBody}>{item.content.body}</Text>
+                  <Text style={notificationStyles.section}>Inbox ({inboxReminders.length}) · Unread ({inboxReminders.filter((n) => !n.read).length})</Text>
+                  {inboxReminders.length === 0 && <Text style={notificationStyles.empty}>No received task reminders yet. Future reminders will appear after delivery.</Text>}
+                  {inboxReminders.map((item) => (
+                    <TouchableOpacity key={item.id} style={notificationStyles.item}
+                      onPress={() => openReminderTask(item)}>
+                      <Text style={notificationStyles.itemTitle}>{!item.read ? "●  " : ""}{item.title}</Text>
+                      <Text style={notificationStyles.itemBody}>{item.body}</Text>
+                      <Text style={notificationStyles.itemBody}>{new Date(item.receivedAt).toLocaleString()}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
               )}
               <TouchableOpacity style={notificationStyles.refresh} onPress={loadNotifications}>
-                <Text style={notificationStyles.refreshText}>Refresh reminders</Text>
+                <Text style={notificationStyles.refreshText}>Refresh inbox</Text>
               </TouchableOpacity>
             </View>
           </View>
