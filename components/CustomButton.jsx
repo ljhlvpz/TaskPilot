@@ -1,3 +1,5 @@
+import React from "react";
+import { useAppTheme } from "../contexts/ThemeContext";
 import { TouchableOpacity, Text, StyleSheet } from "react-native";
 import { Theme } from "../constants/theme";
 
@@ -7,6 +9,9 @@ export default function CustomButton({
   type = "primary",
   disabled = false,
 }) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+
   return (
     <TouchableOpacity
       style={[
@@ -30,9 +35,9 @@ export default function CustomButton({
   );
 }
 
-const styles = StyleSheet.create({
+const make_styles = (colors) => StyleSheet.create({
   button: {
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 16,
     borderRadius: Theme.radius.md,
     alignItems: "center",
@@ -40,9 +45,9 @@ const styles = StyleSheet.create({
   },
 
   secondaryButton: {
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
 
   disabledButton: {
@@ -50,12 +55,12 @@ const styles = StyleSheet.create({
   },
 
   text: {
-    color: Theme.colors.surface,
+    color: colors.surface,
     fontSize: Theme.fonts.body,
     fontWeight: "600",
   },
 
   secondaryText: {
-    color: Theme.colors.text,
+    color: colors.text,
   },
 });

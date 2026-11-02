@@ -1,3 +1,5 @@
+import React from "react";
+import { useAppTheme } from "../contexts/ThemeContext";
 import {
   View,
   Text,
@@ -20,6 +22,9 @@ import {
 } from "../firebase/firestore";
 
 export default function EditProfile() {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+
   const router = useRouter();
   const { user, authLoading } = useAuth();
 
@@ -129,7 +134,7 @@ export default function EditProfile() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator
             size="large"
-            color={Theme.colors.primary}
+            color={colors.primary}
           />
 
           <Text style={styles.loadingText}>
@@ -155,7 +160,7 @@ export default function EditProfile() {
             <Ionicons
               name="arrow-back"
               size={23}
-              color={Theme.colors.text}
+              color={colors.text}
             />
           </TouchableOpacity>
 
@@ -180,7 +185,7 @@ export default function EditProfile() {
           <Ionicons
             name="person-outline"
             size={20}
-            color={Theme.colors.secondaryText}
+            color={colors.secondaryText}
           />
 
           <TextInput
@@ -189,7 +194,7 @@ export default function EditProfile() {
             onChangeText={setName}
             placeholder="Enter your name"
             placeholderTextColor={
-              Theme.colors.secondaryText
+              colors.secondaryText
             }
             autoCapitalize="words"
             maxLength={60}
@@ -209,7 +214,7 @@ export default function EditProfile() {
           <Ionicons
             name="mail-outline"
             size={20}
-            color={Theme.colors.secondaryText}
+            color={colors.secondaryText}
           />
 
           <Text style={styles.emailText}>
@@ -254,10 +259,10 @@ export default function EditProfile() {
   );
 }
 
-const styles = StyleSheet.create({
+const make_styles = (colors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
   },
 
   container: {
@@ -279,15 +284,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: 14,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   headerTitle: {
     fontSize: 19,
     fontWeight: "800",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   headerSpacer: {
@@ -302,7 +307,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 28,
     borderRadius: 41,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
   },
 
   avatarText: {
@@ -315,7 +320,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontSize: 13,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   inputContainer: {
@@ -326,15 +331,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: Theme.radius.lg,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   input: {
     flex: 1,
     fontSize: Theme.fonts.body,
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   disabledInput: {
@@ -345,13 +350,13 @@ const styles = StyleSheet.create({
   emailText: {
     flex: 1,
     fontSize: Theme.fonts.body,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   emailNote: {
     marginBottom: 28,
     fontSize: 11,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   saveButton: {
@@ -361,7 +366,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     borderRadius: Theme.radius.lg,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
   },
 
   saveButtonDisabled: {
@@ -382,6 +387,6 @@ const styles = StyleSheet.create({
 
   loadingText: {
     marginTop: 12,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 });

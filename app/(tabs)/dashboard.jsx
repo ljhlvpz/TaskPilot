@@ -1,3 +1,5 @@
+import React from "react";
+import { useAppTheme } from "../../contexts/ThemeContext";
 import {
   useCallback,
   useEffect,
@@ -30,6 +32,10 @@ import { listenToUserTasks } from "../../services/taskService";
 
 
 export default function Dashboard() {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+  const notificationStyles = React.useMemo(() => make_notificationStyles(colors), [colors]);
+
   const router = useRouter();
 
   const [fullName, setFullName] = useState("");
@@ -41,6 +47,7 @@ export default function Dashboard() {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [notificationLoading, setNotificationLoading] = useState(false);
   const [inboxReminders, setInboxReminders] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -220,13 +227,35 @@ export default function Dashboard() {
       )
       : 0;
 
+  // Keep the bell count synced with the saved, delivered notification inbox.
+  const refreshUnreadCount = useCallback(async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      setUnreadCount(0);
+      return;
+    }
+    await capturePresentedNotifications(uid);
+    const items = await readNotificationInbox(uid);
+    setUnreadCount(items.filter((item) => !item.read).length);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshUnreadCount().catch((error) =>
+        console.warn("Unread notification refresh error:", error)
+      );
+    }, [refreshUnreadCount])
+  );
+
   const loadNotifications = async () => {
     setNotificationLoading(true);
     try {
       const uid = auth.currentUser?.uid;
-      if (!uid) { setInboxReminders([]); return; }
+      if (!uid) { setInboxReminders([]); setUnreadCount(0); return; }
       await capturePresentedNotifications(uid);
-      setInboxReminders(await readNotificationInbox(uid));
+      const items = await readNotificationInbox(uid);
+      setInboxReminders(items);
+      setUnreadCount(items.filter((item) => !item.read).length);
     } catch (error) {
       console.error("Dashboard notifications error:", error);
       Alert.alert("Notifications", "Could not load reminders. Please try again.");
@@ -241,7 +270,9 @@ export default function Dashboard() {
       if (!uid) return;
       try {
         await saveReceivedNotification(uid, notification);
-        if (notificationOpen) setInboxReminders(await readNotificationInbox(uid));
+        const items = await readNotificationInbox(uid);
+        setUnreadCount(items.filter((item) => !item.read).length);
+        if (notificationOpen) setInboxReminders(items);
       } catch (error) { console.warn("Notification inbox update:", error); }
     });
     return () => subscription.remove();
@@ -251,7 +282,9 @@ export default function Dashboard() {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
     await markInboxRead(uid);
-    setInboxReminders(await readNotificationInbox(uid));
+    const items = await readNotificationInbox(uid);
+    setInboxReminders(items);
+    setUnreadCount(items.filter((item) => !item.read).length);
   };
 
   const showNotificationInfo = () => {
@@ -261,7 +294,12 @@ export default function Dashboard() {
 
   const openReminderTask = async (item) => {
     const uid = auth.currentUser?.uid;
-    if (uid) await markInboxRead(uid, item.id);
+    if (uid) {
+      await markInboxRead(uid, item.id);
+      const items = await readNotificationInbox(uid);
+      setInboxReminders(items);
+      setUnreadCount(items.filter((entry) => !entry.read).length);
+    }
     setNotificationOpen(false);
     if (item.taskId) router.push(`/task/${item.taskId}`);
   };
@@ -302,11 +340,11 @@ export default function Dashboard() {
         <View style={styles.header}>
           <View style={styles.greetingContainer}>
             {loadingProfile ? (
-              <ActivityIndicator size="small" color={Theme.colors.primary} />
+              <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <>
                 <Text style={styles.greeting}>
-                  {greeting}, {firstName} 👋
+                  {greeting}, {firstName}! 
                 </Text>
 
                 <Text style={styles.headerSubtitle}>
@@ -316,19 +354,28 @@ export default function Dashboard() {
             )}
           </View>
 
-          <TouchableOpacity
-            style={styles.notificationButton}
-            onPress={showNotificationInfo}
-            activeOpacity={0.75}
-          >
-            <Ionicons
-              name="notifications-outline"
-              size={24}
-              color={Theme.colors.text}
-            />
-
-
-          </TouchableOpacity>
+          <View style={styles.bellWrapper}>
+            <TouchableOpacity
+              style={styles.notificationButton}
+              onPress={showNotificationInfo}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={`Notifications, ${unreadCount} unread`}
+            >
+              <Ionicons
+                name="notifications-outline"
+                size={24}
+                color={colors.text}
+              />
+            </TouchableOpacity>
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge} pointerEvents="none">
+                <Text style={styles.notificationBadgeText}>
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
 
         <Modal visible={notificationOpen} transparent animationType="slide"
@@ -338,14 +385,14 @@ export default function Dashboard() {
               <View style={notificationStyles.header}>
                 <Text style={notificationStyles.heading}>TaskPilot Notifications 🔔</Text>
                 <TouchableOpacity onPress={() => setNotificationOpen(false)} accessibilityLabel="Close notifications">
-                  <Ionicons name="close" size={25} color={Theme.colors.text} />
+                  <Ionicons name="close" size={25} color={colors.text} />
                 </TouchableOpacity>
               </View>
               <Text style={notificationStyles.help}>Received task reminders and daily summaries saved on this device. Future scheduled reminders are not shown.</Text>
               <TouchableOpacity onPress={markAllNotificationsRead} accessibilityLabel="Mark all notifications as read">
                 <Text style={notificationStyles.section}>Mark all as read</Text>
               </TouchableOpacity>
-              {notificationLoading ? <ActivityIndicator color={Theme.colors.primary} /> : (
+              {notificationLoading ? <ActivityIndicator color={colors.primary} /> : (
                 <ScrollView style={notificationStyles.list}>
                   <Text style={notificationStyles.section}>Inbox ({inboxReminders.length}) · Unread ({inboxReminders.filter((n) => !n.read).length})</Text>
                   {inboxReminders.length === 0 && <Text style={notificationStyles.empty}>No received task reminders yet. Future reminders will appear after delivery.</Text>}
@@ -424,7 +471,7 @@ export default function Dashboard() {
               <Ionicons
                 name="warning-outline"
                 size={22}
-                color={Theme.colors.error}
+                color={colors.error}
               />
             </View>
 
@@ -443,7 +490,7 @@ export default function Dashboard() {
             <Ionicons
               name="chevron-forward"
               size={20}
-              color={Theme.colors.secondaryText}
+              color={colors.secondaryText}
             />
           </TouchableOpacity>
         )}
@@ -483,7 +530,7 @@ export default function Dashboard() {
           <View style={styles.loadingTasksContainer}>
             <ActivityIndicator
               size="small"
-              color={Theme.colors.primary}
+              color={colors.primary}
             />
 
             <Text style={styles.loadingTasksText}>
@@ -495,7 +542,7 @@ export default function Dashboard() {
             <Ionicons
               name="checkmark-done-circle-outline"
               size={48}
-              color={Theme.colors.secondaryText}
+              color={colors.secondaryText}
             />
 
             <Text style={styles.emptyTitle}>No tasks for today</Text>
@@ -544,7 +591,7 @@ export default function Dashboard() {
           <View style={styles.loadingTasksContainer}>
             <ActivityIndicator
               size="small"
-              color={Theme.colors.primary}
+              color={colors.primary}
             />
 
             <Text style={styles.loadingTasksText}>
@@ -556,7 +603,7 @@ export default function Dashboard() {
             <Ionicons
               name="calendar-outline"
               size={28}
-              color={Theme.colors.secondaryText}
+              color={colors.secondaryText}
             />
 
             <Text style={styles.upcomingEmptyTitle}>
@@ -603,7 +650,7 @@ export default function Dashboard() {
                           name="time-outline"
                           size={14}
                           color={
-                            Theme.colors.secondaryText
+                            colors.secondaryText
                           }
                         />
 
@@ -622,7 +669,7 @@ export default function Dashboard() {
                         name="flag-outline"
                         size={14}
                         color={
-                          Theme.colors.secondaryText
+                          colors.secondaryText
                         }
                       />
 
@@ -644,7 +691,7 @@ export default function Dashboard() {
                 <Ionicons
                   name="chevron-forward"
                   size={19}
-                  color={Theme.colors.secondaryText}
+                  color={colors.secondaryText}
                 />
               </TouchableOpacity>
             ))}
@@ -657,12 +704,16 @@ export default function Dashboard() {
 }
 
 function SummaryItem({ icon, value, label }) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+  const notificationStyles = React.useMemo(() => make_notificationStyles(colors), [colors]);
+
   return (
     <View style={styles.summaryItem}>
       <Ionicons
         name={icon}
         size={22}
-        color={Theme.colors.primary}
+        color={colors.primary}
       />
 
       <Text style={styles.summaryValue}>{value}</Text>
@@ -672,6 +723,10 @@ function SummaryItem({ icon, value, label }) {
 }
 
 function QuickAction({ icon, label, onPress }) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+  const notificationStyles = React.useMemo(() => make_notificationStyles(colors), [colors]);
+
   return (
     <TouchableOpacity
       style={styles.quickAction}
@@ -682,7 +737,7 @@ function QuickAction({ icon, label, onPress }) {
         <Ionicons
           name={icon}
           size={25}
-          color={Theme.colors.primary}
+          color={colors.primary}
         />
       </View>
 
@@ -692,10 +747,14 @@ function QuickAction({ icon, label, onPress }) {
 }
 
 function TaskItem({ task, onPress }) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+  const notificationStyles = React.useMemo(() => make_notificationStyles(colors), [colors]);
+
   const priorityColor = {
-    high: Theme.colors.high,
-    medium: Theme.colors.medium,
-    low: Theme.colors.low,
+    high: colors.high,
+    medium: colors.medium,
+    low: colors.low,
   }[task.priority];
 
   return (
@@ -730,7 +789,7 @@ function TaskItem({ task, onPress }) {
             <Ionicons
               name="time-outline"
               size={15}
-              color={Theme.colors.secondaryText}
+              color={colors.secondaryText}
             />
 
             <Text style={styles.taskTime}>
@@ -772,13 +831,13 @@ function TaskItem({ task, onPress }) {
       <Ionicons
         name="chevron-forward"
         size={20}
-        color={Theme.colors.secondaryText}
+        color={colors.secondaryText}
       />
     </TouchableOpacity>
   );
 }
 
-const styles = StyleSheet.create({
+const make_styles = (colors) => StyleSheet.create({
   upcomingList: {
     gap: 10,
   },
@@ -788,9 +847,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 14,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: Theme.radius.lg,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   upcomingDateBox: {
@@ -800,13 +859,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 12,
-    backgroundColor: Theme.colors.primaryLight,
+    backgroundColor: colors.primaryLight,
   },
 
   upcomingDateText: {
     fontSize: 12,
     fontWeight: "800",
-    color: Theme.colors.primary,
+    color: colors.primary,
   },
 
   upcomingContent: {
@@ -817,7 +876,7 @@ const styles = StyleSheet.create({
   upcomingTitle: {
     fontSize: Theme.fonts.body,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   upcomingMeta: {
@@ -836,29 +895,29 @@ const styles = StyleSheet.create({
 
   upcomingMetaText: {
     fontSize: 11,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   upcomingEmpty: {
     alignItems: "center",
     paddingVertical: 24,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: Theme.radius.lg,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   upcomingEmptyTitle: {
     marginTop: 8,
     fontSize: Theme.fonts.body,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   upcomingEmptyText: {
     marginTop: 4,
     fontSize: Theme.fonts.caption,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   overdueCard: {
@@ -867,9 +926,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
     padding: 15,
     borderRadius: Theme.radius.lg,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: Theme.colors.error,
+    borderColor: colors.error,
   },
 
   overdueIcon: {
@@ -878,7 +937,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 13,
-    backgroundColor: `${Theme.colors.error}15`,
+    backgroundColor: `${colors.error}15`,
   },
 
   overdueContent: {
@@ -889,14 +948,14 @@ const styles = StyleSheet.create({
   overdueTitle: {
     fontSize: Theme.fonts.body,
     fontWeight: "700",
-    color: Theme.colors.error,
+    color: colors.error,
   },
 
   overdueText: {
     marginTop: 3,
     fontSize: Theme.fonts.caption,
     lineHeight: 17,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
   container: {
     width: "100%",
@@ -919,33 +978,60 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: Theme.fonts.title,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   headerSubtitle: {
     marginTop: 4,
     fontSize: Theme.fonts.body,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
+  bellWrapper: {
+    position: "relative",
+    marginRight: 3,
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: -5,
+    right: -6,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    backgroundColor: "#EF5B45",
+    borderWidth: 2,
+    borderColor: colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2,
+    elevation: 2,
+  },
+  notificationBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "800",
+    textAlign: "center",
+    includeFontPadding: false,
+  },
   notificationButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
 
 
   progressCard: {
     padding: 20,
     borderRadius: Theme.radius.lg,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     ...Theme.shadows.card,
   },
 
@@ -958,26 +1044,26 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: Theme.fonts.subtitle,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   progressText: {
     marginTop: 5,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
     fontSize: Theme.fonts.caption,
   },
 
   progressPercentage: {
     fontSize: 22,
     fontWeight: "800",
-    color: Theme.colors.primary,
+    color: colors.primary,
   },
 
   progressTrack: {
     height: 9,
     borderRadius: 10,
     overflow: "hidden",
-    backgroundColor: Theme.colors.primaryLight,
+    backgroundColor: colors.primaryLight,
     marginTop: 18,
     marginBottom: 22,
   },
@@ -985,7 +1071,7 @@ const styles = StyleSheet.create({
   progressFill: {
     height: "100%",
     borderRadius: 10,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
   },
 
   summaryRow: {
@@ -1002,20 +1088,20 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 20,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   summaryLabel: {
     marginTop: 2,
     fontSize: 11,
     textAlign: "center",
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   summaryDivider: {
     width: 1,
     height: 46,
-    backgroundColor: Theme.colors.border,
+    backgroundColor: colors.border,
   },
 
   sectionHeader: {
@@ -1029,12 +1115,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: Theme.fonts.subtitle,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   viewAllText: {
     fontWeight: "600",
-    color: Theme.colors.primary,
+    color: colors.primary,
   },
 
   quickActionsRow: {
@@ -1049,9 +1135,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 12,
     borderRadius: Theme.radius.lg,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
 
   quickActionIcon: {
@@ -1060,7 +1146,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 15,
-    backgroundColor: Theme.colors.primaryLight,
+    backgroundColor: colors.primaryLight,
   },
 
   quickActionLabel: {
@@ -1068,7 +1154,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     textAlign: "center",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   taskList: {
@@ -1080,9 +1166,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 15,
     borderRadius: Theme.radius.lg,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
 
   checkbox: {
@@ -1092,11 +1178,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: Theme.colors.primary,
+    borderColor: colors.primary,
   },
 
   checkboxCompleted: {
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
   },
 
   taskContent: {
@@ -1107,12 +1193,12 @@ const styles = StyleSheet.create({
   taskTitle: {
     fontSize: Theme.fonts.body,
     fontWeight: "600",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   taskTitleCompleted: {
     textDecorationLine: "line-through",
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   taskDetails: {
@@ -1130,7 +1216,7 @@ const styles = StyleSheet.create({
 
   taskTime: {
     fontSize: 12,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   priorityBadge: {
@@ -1159,16 +1245,16 @@ const styles = StyleSheet.create({
     paddingVertical: 38,
     paddingHorizontal: 20,
     borderRadius: Theme.radius.lg,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
   },
 
   emptyTitle: {
     marginTop: 14,
     fontSize: Theme.fonts.subtitle,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   emptyText: {
@@ -1176,7 +1262,7 @@ const styles = StyleSheet.create({
     marginTop: 7,
     textAlign: "center",
     lineHeight: 20,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   emptyButton: {
@@ -1187,7 +1273,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 11,
     borderRadius: Theme.radius.md,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
   },
 
   emptyButtonText: {
@@ -1204,21 +1290,21 @@ const styles = StyleSheet.create({
 
   loadingTasksText: {
     fontSize: Theme.fonts.body,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 });
-const notificationStyles = StyleSheet.create({
+const make_notificationStyles = (colors) => StyleSheet.create({
   overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" },
-  sheet: { backgroundColor: Theme.colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: "80%", minHeight: 340 },
+  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: "80%", minHeight: 340 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  heading: { fontSize: 20, fontWeight: "800", color: Theme.colors.text },
-  help: { color: Theme.colors.secondaryText, marginTop: 8, marginBottom: 12 },
+  heading: { fontSize: 20, fontWeight: "800", color: colors.text },
+  help: { color: colors.secondaryText, marginTop: 8, marginBottom: 12 },
   list: { flexGrow: 0 },
-  section: { color: Theme.colors.primary, fontWeight: "800", marginTop: 14, marginBottom: 8 },
-  empty: { color: Theme.colors.secondaryText, paddingVertical: 12 },
-  item: { padding: 12, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 12, marginBottom: 8 },
-  itemTitle: { fontWeight: "700", color: Theme.colors.text },
-  itemBody: { marginTop: 4, color: Theme.colors.secondaryText },
-  refresh: { marginTop: 12, backgroundColor: Theme.colors.primary, borderRadius: 12, padding: 13, alignItems: "center" },
+  section: { color: colors.primary, fontWeight: "800", marginTop: 14, marginBottom: 8 },
+  empty: { color: colors.secondaryText, paddingVertical: 12 },
+  item: { padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 12, marginBottom: 8 },
+  itemTitle: { fontWeight: "700", color: colors.text },
+  itemBody: { marginTop: 4, color: colors.secondaryText },
+  refresh: { marginTop: 12, backgroundColor: colors.primary, borderRadius: 12, padding: 13, alignItems: "center" },
   refreshText: { color: "#FFFFFF", fontWeight: "700" },
 });

@@ -1,3 +1,5 @@
+import React from "react";
+import { useAppTheme } from "../../contexts/ThemeContext";
 import { useCallback, useState } from "react";
 import {
   View,
@@ -50,6 +52,9 @@ const CATEGORY_ICONS = {
 };
 
 export default function TaskDetails() {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+
   const router = useRouter();
   const params = useLocalSearchParams();
 
@@ -283,7 +288,7 @@ export default function TaskDetails() {
         <View style={styles.centerContainer}>
           <ActivityIndicator
             size="large"
-            color={Theme.colors.primary}
+            color={colors.primary}
           />
 
           <Text style={styles.loadingText}>
@@ -306,7 +311,7 @@ export default function TaskDetails() {
             <Ionicons
               name="arrow-back"
               size={23}
-              color={Theme.colors.text}
+              color={colors.text}
             />
           </TouchableOpacity>
 
@@ -320,7 +325,7 @@ export default function TaskDetails() {
             <Ionicons
               name="document-text-outline"
               size={34}
-              color={Theme.colors.primary}
+              color={colors.primary}
             />
           </View>
 
@@ -368,7 +373,7 @@ export default function TaskDetails() {
           <Ionicons
             name="arrow-back"
             size={23}
-            color={Theme.colors.text}
+            color={colors.text}
           />
         </TouchableOpacity>
 
@@ -391,7 +396,7 @@ export default function TaskDetails() {
           <Ionicons
             name="create-outline"
             size={22}
-            color={Theme.colors.primary}
+            color={colors.primary}
           />
         </TouchableOpacity>
       </View>
@@ -403,7 +408,7 @@ export default function TaskDetails() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={Theme.colors.primary}
+            tintColor={colors.primary}
           />
         }
       >
@@ -424,7 +429,7 @@ export default function TaskDetails() {
                 color={
                   task.completed
                     ? "#FFFFFF"
-                    : Theme.colors.primary
+                    : colors.primary
                 }
               />
             ) : (
@@ -438,7 +443,7 @@ export default function TaskDetails() {
                 color={
                   task.completed
                     ? "#FFFFFF"
-                    : Theme.colors.primary
+                    : colors.primary
                 }
               />
             )}
@@ -468,7 +473,7 @@ export default function TaskDetails() {
             <Ionicons
               name="sparkles"
               size={22}
-              color={Theme.colors.primary}
+              color={colors.primary}
             />
 
             <View style={styles.successTextContainer}>
@@ -528,7 +533,7 @@ export default function TaskDetails() {
           <Ionicons
             name="document-text-outline"
             size={22}
-            color={Theme.colors.secondaryText}
+            color={colors.secondaryText}
           />
 
           <Text
@@ -577,7 +582,7 @@ export default function TaskDetails() {
             <>
               <ActivityIndicator
                 size="small"
-                color={Theme.colors.error}
+                color={colors.error}
               />
 
               <Text style={styles.deleteButtonText}>
@@ -589,7 +594,7 @@ export default function TaskDetails() {
               <Ionicons
                 name="trash-outline"
                 size={20}
-                color={Theme.colors.error}
+                color={colors.error}
               />
 
               <Text style={styles.deleteButtonText}>
@@ -608,13 +613,16 @@ export default function TaskDetails() {
 }
 
 function DetailRow({ icon, label, value }) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+
   return (
     <View style={styles.detailRow}>
       <View style={styles.detailIcon}>
         <Ionicons
           name={icon}
           size={21}
-          color={Theme.colors.primary}
+          color={colors.primary}
         />
       </View>
 
@@ -626,10 +634,10 @@ function DetailRow({ icon, label, value }) {
   );
 }
 
-const styles = StyleSheet.create({
+const make_styles = (colors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
   },
 
   centerContainer: {
@@ -642,7 +650,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 14,
     fontSize: 14,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   header: {
@@ -652,8 +660,8 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-    backgroundColor: Theme.colors.background,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.background,
   },
 
   simpleHeader: {
@@ -662,14 +670,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
+    borderBottomColor: colors.border,
   },
 
   simpleHeaderTitle: {
     marginLeft: 12,
     fontSize: 20,
     fontWeight: "800",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   iconButton: {
@@ -678,9 +686,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: 14,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   headerTextContainer: {
@@ -691,13 +699,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 21,
     fontWeight: "800",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   headerSubtitle: {
     marginTop: 2,
     fontSize: 12,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   scrollContent: {
@@ -714,9 +722,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 18,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: 20,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   completionButton: {
@@ -726,13 +734,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 14,
     borderWidth: 2,
-    borderColor: Theme.colors.primary,
+    borderColor: colors.primary,
     borderRadius: 16,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
   },
 
   completionButtonActive: {
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
   },
 
   taskTitleContainer: {
@@ -743,19 +751,19 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 27,
     fontWeight: "800",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   completedTaskTitle: {
     textDecorationLine: "line-through",
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   taskStatus: {
     marginTop: 5,
     fontSize: 13,
     fontWeight: "600",
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   successCard: {
@@ -764,9 +772,9 @@ const styles = StyleSheet.create({
     marginTop: 14,
     padding: 15,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: 17,
-    backgroundColor: Theme.colors.primaryLight,
+    backgroundColor: colors.primaryLight,
   },
 
   successTextContainer: {
@@ -777,14 +785,14 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 14,
     fontWeight: "800",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   successDescription: {
     marginTop: 3,
     fontSize: 12,
     lineHeight: 18,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   sectionTitle: {
@@ -792,15 +800,15 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     fontSize: 17,
     fontWeight: "800",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   detailsCard: {
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: 19,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   detailRow: {
@@ -816,7 +824,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 12,
     borderRadius: 14,
-    backgroundColor: Theme.colors.primaryLight,
+    backgroundColor: colors.primaryLight,
   },
 
   detailTextContainer: {
@@ -825,19 +833,19 @@ const styles = StyleSheet.create({
 
   detailLabel: {
     fontSize: 12,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   detailValue: {
     marginTop: 3,
     fontSize: 15,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   divider: {
     height: 1,
-    backgroundColor: Theme.colors.border,
+    backgroundColor: colors.border,
   },
 
   descriptionCard: {
@@ -846,9 +854,9 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     padding: 17,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: 19,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   descriptionText: {
@@ -856,11 +864,11 @@ const styles = StyleSheet.create({
     marginLeft: 11,
     fontSize: 14,
     lineHeight: 22,
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   descriptionPlaceholder: {
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   editButton: {
@@ -871,7 +879,7 @@ const styles = StyleSheet.create({
     gap: 9,
     marginTop: 28,
     borderRadius: 17,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
   },
 
   editButtonText: {
@@ -888,15 +896,15 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: Theme.colors.error,
+    borderColor: colors.error,
     borderRadius: 16,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   deleteButtonText: {
     fontSize: 14,
     fontWeight: "800",
-    color: Theme.colors.error,
+    color: colors.error,
   },
 
   actionButtonDisabled: {
@@ -907,7 +915,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
     textAlign: "center",
     fontSize: 12,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   emptyIcon: {
@@ -916,14 +924,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 24,
-    backgroundColor: Theme.colors.primaryLight,
+    backgroundColor: colors.primaryLight,
   },
 
   errorTitle: {
     marginTop: 17,
     fontSize: 20,
     fontWeight: "800",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   errorText: {
@@ -932,7 +940,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 14,
     lineHeight: 21,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   primaryButton: {
@@ -944,7 +952,7 @@ const styles = StyleSheet.create({
     marginTop: 22,
     paddingHorizontal: 25,
     borderRadius: 16,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
   },
 
   primaryButtonText: {

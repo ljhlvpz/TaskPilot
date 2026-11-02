@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import {
   Pressable,
@@ -7,8 +8,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-const GREEN = "#1B3A1A";
-const LIGHT_GREEN = "#A8CBA0";
+import { useAppTheme } from "../contexts/ThemeContext";
 
 export default function PinKeypad({
   title = "Enter your PIN",
@@ -17,7 +17,25 @@ export default function PinKeypad({
   onComplete,
   disabled = false,
 }) {
+  const { colors, isDark } = useAppTheme();
   const [pin, setPin] = useState("");
+
+  const palette = {
+    title: isDark ? "#E8F2E5" : "#1B3A1A",
+    subtitle: isDark ? "#A8BDA9" : "#667765",
+
+    lockBackground: isDark ? "#304C36" : "#A8CBA0",
+    lockIcon: isDark ? "#C8E5BF" : "#1B3A1A",
+
+    keyBackground: isDark ? "#263C2D" : "#FFFFFF",
+    keyBorder: isDark ? "#49664F" : "#DFE8DB",
+    keyText: isDark ? "#E5F2DF" : "#1B3A1A",
+
+    pressedBackground: isDark ? "#456B4A" : "#A8CBA0",
+
+    emptyDot: isDark ? "#A8CBA0" : "#1B3A1A",
+    filledDot: isDark ? "#B8DDB0" : "#1B3A1A",
+  };
 
   const handleNumber = (number) => {
     if (disabled || pin.length >= pinLength) return;
@@ -46,38 +64,79 @@ export default function PinKeypad({
 
   return (
     <View style={styles.container}>
-      <View style={styles.lockCircle}>
+      <View
+        style={[
+          styles.lockCircle,
+          {
+            backgroundColor: palette.lockBackground,
+          },
+        ]}
+      >
         <Ionicons
           name="lock-closed-outline"
           size={32}
-          color={GREEN}
+          color={palette.lockIcon}
         />
       </View>
 
-      <Text style={styles.title}>{title}</Text>
+      <Text
+        style={[
+          styles.title,
+          { color: palette.title },
+        ]}
+      >
+        {title}
+      </Text>
 
       {!!subtitle && (
-        <Text style={styles.subtitle}>{subtitle}</Text>
+        <Text
+          style={[
+            styles.subtitle,
+            { color: palette.subtitle },
+          ]}
+        >
+          {subtitle}
+        </Text>
       )}
 
       <View style={styles.dots}>
-        {Array.from({ length: pinLength }).map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.dot,
-              index < pin.length && styles.filledDot,
-            ]}
-          />
-        ))}
+        {Array.from({ length: pinLength }).map(
+          (_, index) => {
+            const filled = index < pin.length;
+
+            return (
+              <View
+                key={index}
+                style={[
+                  styles.dot,
+                  {
+                    borderColor: palette.emptyDot,
+                    backgroundColor: filled
+                      ? palette.filledDot
+                      : "transparent",
+                  },
+                ]}
+              />
+            );
+          }
+        )}
       </View>
 
       <View style={styles.keypad}>
         {keys.map((key, index) => (
-          <View key={index} style={styles.keySlot}>
+          <View
+            key={index}
+            style={styles.keySlot}
+          >
             {key !== "" && (
               <Pressable
                 disabled={disabled}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  key === "delete"
+                    ? "Delete last PIN digit"
+                    : `Digit ${key}`
+                }
                 onPress={() =>
                   key === "delete"
                     ? handleDelete()
@@ -85,17 +144,30 @@ export default function PinKeypad({
                 }
                 style={({ pressed }) => [
                   styles.key,
-                  pressed && styles.pressedKey,
+                  {
+                    backgroundColor: pressed
+                      ? palette.pressedBackground
+                      : palette.keyBackground,
+                    borderColor: palette.keyBorder,
+                    opacity: disabled ? 0.55 : 1,
+                  },
                 ]}
               >
                 {key === "delete" ? (
                   <Ionicons
                     name="backspace-outline"
                     size={25}
-                    color={GREEN}
+                    color={palette.keyText}
                   />
                 ) : (
-                  <Text style={styles.keyText}>{key}</Text>
+                  <Text
+                    style={[
+                      styles.keyText,
+                      { color: palette.keyText },
+                    ]}
+                  >
+                    {key}
+                  </Text>
                 )}
               </Pressable>
             )}
@@ -117,7 +189,6 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: LIGHT_GREEN,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 20,
@@ -126,15 +197,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "700",
-    color: GREEN,
     textAlign: "center",
   },
 
   subtitle: {
     fontSize: 13,
-    color: "#667765",
     textAlign: "center",
     marginTop: 8,
+    lineHeight: 19,
   },
 
   dots: {
@@ -149,11 +219,6 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     borderWidth: 2,
-    borderColor: GREEN,
-  },
-
-  filledDot: {
-    backgroundColor: GREEN,
   },
 
   keypad: {
@@ -173,20 +238,13 @@ const styles = StyleSheet.create({
     width: 66,
     height: 66,
     borderRadius: 33,
-    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#DFE8DB",
     alignItems: "center",
     justifyContent: "center",
-  },
-
-  pressedKey: {
-    backgroundColor: LIGHT_GREEN,
   },
 
   keyText: {
     fontSize: 25,
     fontWeight: "600",
-    color: GREEN,
   },
 });

@@ -1,3 +1,5 @@
+import React from "react";
+import { useAppTheme } from "../../contexts/ThemeContext";
 import { useEffect, useMemo, useState } from "react";
 import {
   View,
@@ -28,6 +30,9 @@ import {
 const FILTERS = ["All", "Active", "Completed"];
 
 export default function Tasks() {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+
   const router = useRouter();
   const [tasks, setTasks] = useState([]);
   const [searchText, setSearchText] = useState("");
@@ -217,14 +222,14 @@ export default function Tasks() {
           <Ionicons
             name="search-outline"
             size={21}
-            color={Theme.colors.secondaryText}
+            color={colors.secondaryText}
           />
 
           <TextInput
             value={searchText}
             onChangeText={setSearchText}
             placeholder="Search your tasks..."
-            placeholderTextColor={Theme.colors.secondaryText}
+            placeholderTextColor={colors.secondaryText}
             style={styles.searchInput}
             returnKeyType="search"
           />
@@ -237,7 +242,7 @@ export default function Tasks() {
               <Ionicons
                 name="close-circle"
                 size={20}
-                color={Theme.colors.secondaryText}
+                color={colors.secondaryText}
               />
             </TouchableOpacity>
           )}
@@ -274,7 +279,7 @@ export default function Tasks() {
           <View style={styles.centerContent}>
             <ActivityIndicator
               size="large"
-              color={Theme.colors.primary}
+              color={colors.primary}
             />
 
             <Text style={styles.loadingText}>
@@ -287,7 +292,7 @@ export default function Tasks() {
               <Ionicons
                 name="cloud-offline-outline"
                 size={42}
-                color={Theme.colors.error}
+                color={colors.error}
               />
             </View>
 
@@ -332,12 +337,15 @@ export default function Tasks() {
 }
 
 function SummaryItem({ icon, value, label }) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+
   return (
     <View style={styles.summaryItem}>
       <Ionicons
         name={icon}
         size={21}
-        color={Theme.colors.primary}
+        color={colors.primary}
       />
 
       <Text style={styles.summaryValue}>{value}</Text>
@@ -347,14 +355,17 @@ function SummaryItem({ icon, value, label }) {
 }
 
 function TaskCard({ task, updating, onToggle, onOpen }) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+
   const priority = task.priority?.toLowerCase() || "medium";
 
   const priorityColor =
     {
-      high: Theme.colors.high || "#EF4444",
-      medium: Theme.colors.medium || "#F59E0B",
-      low: Theme.colors.low || "#22C55E",
-    }[priority] || Theme.colors.primary;
+      high: colors.high || "#EF4444",
+      medium: colors.medium || "#F59E0B",
+      low: colors.low || "#22C55E",
+    }[priority] || colors.primary;
 
   return (
     <TouchableOpacity
@@ -377,7 +388,7 @@ function TaskCard({ task, updating, onToggle, onOpen }) {
         {updating ? (
           <ActivityIndicator
             size="small"
-            color={task.completed ? "#FFFFFF" : Theme.colors.primary}
+            color={task.completed ? "#FFFFFF" : colors.primary}
           />
         ) : task.completed ? (
           <Ionicons name="checkmark" size={17} color="#FFFFFF" />
@@ -412,7 +423,7 @@ function TaskCard({ task, updating, onToggle, onOpen }) {
             <Ionicons
               name={getCategoryIcon(task.category)}
               size={14}
-              color={Theme.colors.secondaryText}
+              color={colors.secondaryText}
             />
 
             <Text style={styles.categoryText}>
@@ -448,7 +459,7 @@ function TaskCard({ task, updating, onToggle, onOpen }) {
       <Ionicons
         name="chevron-forward"
         size={20}
-        color={Theme.colors.secondaryText}
+        color={colors.secondaryText}
       />
     </TouchableOpacity>
   );
@@ -460,6 +471,9 @@ function TaskEmptyState({
   selectedFilter,
   onAddTask,
 }) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+
   const isFiltering =
     searchText.trim().length > 0 || selectedFilter !== "All";
 
@@ -470,7 +484,7 @@ function TaskEmptyState({
           <Ionicons
             name="search-outline"
             size={42}
-            color={Theme.colors.primary}
+            color={colors.primary}
           />
         </View>
 
@@ -489,7 +503,7 @@ function TaskEmptyState({
         <Ionicons
           name="sparkles-outline"
           size={42}
-          color={Theme.colors.primary}
+          color={colors.primary}
         />
       </View>
 
@@ -527,16 +541,16 @@ function getCategoryIcon(category) {
   return icons[normalizedCategory] || "folder-outline";
 }
 
-const styles = StyleSheet.create({
+const make_styles = (colors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
   },
 
   container: {
     flex: 1,
     paddingHorizontal: 18,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
   },
 
   header: {
@@ -550,13 +564,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "800",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   subtitle: {
     marginTop: 4,
     fontSize: 14,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   headerAddButton: {
@@ -565,7 +579,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
   },
 
   summaryContainer: {
@@ -575,9 +589,9 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: 18,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   summaryItem: {
@@ -589,19 +603,19 @@ const styles = StyleSheet.create({
     marginTop: 3,
     fontSize: 19,
     fontWeight: "800",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   summaryLabel: {
     marginTop: 1,
     fontSize: 11,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   summaryDivider: {
     width: 1,
     height: 42,
-    backgroundColor: Theme.colors.border,
+    backgroundColor: colors.border,
   },
 
   searchContainer: {
@@ -610,9 +624,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 15,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: 16,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   searchInput: {
@@ -620,7 +634,7 @@ const styles = StyleSheet.create({
     height: "100%",
     marginHorizontal: 10,
     fontSize: 15,
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   filterRow: {
@@ -633,20 +647,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 17,
     paddingVertical: 9,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: 30,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   filterButtonSelected: {
-    borderColor: Theme.colors.primary,
-    backgroundColor: Theme.colors.primary,
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
 
   filterText: {
     fontSize: 13,
     fontWeight: "600",
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   filterTextSelected: {
@@ -667,9 +681,9 @@ const styles = StyleSheet.create({
     marginBottom: 11,
     padding: 15,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: 18,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   checkbox: {
@@ -678,12 +692,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: Theme.colors.primary,
+    borderColor: colors.primary,
     borderRadius: 8,
   },
 
   checkboxCompleted: {
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
   },
 
   taskContent: {
@@ -694,18 +708,18 @@ const styles = StyleSheet.create({
   taskTitle: {
     fontSize: 15,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   taskTitleCompleted: {
     textDecorationLine: "line-through",
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   taskDescription: {
     marginTop: 4,
     fontSize: 13,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   taskTextCompleted: {
@@ -729,7 +743,7 @@ const styles = StyleSheet.create({
 
   categoryText: {
     fontSize: 12,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   priorityBadge: {
@@ -763,7 +777,7 @@ const styles = StyleSheet.create({
 
   loadingText: {
     marginTop: 14,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   emptyContainer: {
@@ -780,7 +794,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 28,
-    backgroundColor: Theme.colors.primaryLight,
+    backgroundColor: colors.primaryLight,
   },
 
   emptyTitle: {
@@ -788,7 +802,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "800",
     textAlign: "center",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   emptyDescription: {
@@ -797,7 +811,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     textAlign: "center",
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   emptyButton: {
@@ -808,7 +822,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 14,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
   },
 
   emptyButtonText: {
@@ -834,6 +848,6 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.2,
     shadowRadius: 6,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
   },
 });

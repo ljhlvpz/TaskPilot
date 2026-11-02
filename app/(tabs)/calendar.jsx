@@ -1,3 +1,5 @@
+import React from "react";
+import { useAppTheme } from "../../contexts/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -55,6 +57,9 @@ const formatSelectedDate = (dateString) => {
 };
 
 export default function CalendarScreen() {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+
     const router = useRouter();
     const { user, authLoading } = useAuth();
 
@@ -169,7 +174,7 @@ export default function CalendarScreen() {
         marks[selectedDate] = {
             ...(marks[selectedDate] || {}),
             selected: true,
-            selectedColor: Theme.colors.primary,
+            selectedColor: colors.primary,
             selectedTextColor: "#FFFFFF",
             dots: marks[selectedDate]?.dots || [],
         };
@@ -230,7 +235,7 @@ export default function CalendarScreen() {
                         <Ionicons
                             name="chevron-forward-outline"
                             size={19}
-                            color={Theme.colors.secondaryText}
+                            color={colors.secondaryText}
                         />
                     </View>
 
@@ -251,7 +256,7 @@ export default function CalendarScreen() {
                                     "folder-outline"
                                 }
                                 size={15}
-                                color={Theme.colors.secondaryText}
+                                color={colors.secondaryText}
                             />
 
                             <Text style={styles.metaText}>
@@ -265,7 +270,7 @@ export default function CalendarScreen() {
                                     name="time-outline"
                                     size={15}
                                     color={
-                                        Theme.colors.secondaryText
+                                        colors.secondaryText
                                     }
                                 />
 
@@ -356,24 +361,24 @@ export default function CalendarScreen() {
                                 enableSwipeMonths
                                 theme={{
                                     backgroundColor:
-                                        Theme.colors.surface,
+                                        colors.surface,
                                     calendarBackground:
-                                        Theme.colors.surface,
+                                        colors.surface,
                                     textSectionTitleColor:
-                                        Theme.colors.secondaryText,
+                                        colors.secondaryText,
                                     selectedDayBackgroundColor:
-                                        Theme.colors.primary,
+                                        colors.primary,
                                     selectedDayTextColor:
                                         "#FFFFFF",
                                     todayTextColor:
-                                        Theme.colors.primary,
+                                        colors.primary,
                                     dayTextColor:
-                                        Theme.colors.text,
+                                        colors.text,
                                     textDisabledColor: "#C7CBD3",
                                     arrowColor:
-                                        Theme.colors.primary,
+                                        colors.primary,
                                     monthTextColor:
-                                        Theme.colors.text,
+                                        colors.text,
                                     textMonthFontWeight: "800",
                                     textDayFontWeight: "500",
                                     textDayHeaderFontWeight:
@@ -452,7 +457,7 @@ export default function CalendarScreen() {
                             <View style={styles.statusContainer}>
                                 <ActivityIndicator
                                     size="small"
-                                    color={Theme.colors.primary}
+                                    color={colors.primary}
                                 />
 
                                 <Text style={styles.statusText}>
@@ -466,7 +471,7 @@ export default function CalendarScreen() {
                                 <Ionicons
                                     name="alert-circle-outline"
                                     size={24}
-                                    color={Theme.colors.error}
+                                    color={colors.error}
                                 />
 
                                 <Text style={styles.errorText}>
@@ -483,7 +488,7 @@ export default function CalendarScreen() {
                                 <Ionicons
                                     name="calendar-clear-outline"
                                     size={32}
-                                    color={Theme.colors.primary}
+                                    color={colors.primary}
                                 />
                             </View>
 
@@ -525,10 +530,10 @@ export default function CalendarScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const make_styles = (colors) => StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: Theme.colors.background,
+        backgroundColor: colors.background,
     },
 
     header: {
@@ -539,20 +544,20 @@ const styles = StyleSheet.create({
         paddingTop: 10,
         paddingBottom: 14,
         borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.border,
-        backgroundColor: Theme.colors.background,
+        borderBottomColor: colors.border,
+        backgroundColor: colors.background,
     },
 
     headerTitle: {
         fontSize: 25,
         fontWeight: "800",
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     headerSubtitle: {
         marginTop: 3,
         fontSize: 13,
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     headerAddButton: {
@@ -561,7 +566,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         borderRadius: 15,
-        backgroundColor: Theme.colors.primary,
+        backgroundColor: colors.primary,
     },
 
     listContent: {
@@ -576,9 +581,9 @@ const styles = StyleSheet.create({
     calendarCard: {
         padding: 7,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: colors.border,
         borderRadius: 20,
-        backgroundColor: Theme.colors.surface,
+        backgroundColor: colors.surface,
         overflow: "hidden",
     },
 
@@ -606,7 +611,7 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontWeight: "600",
         textTransform: "capitalize",
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     sectionHeader: {
@@ -626,13 +631,13 @@ const styles = StyleSheet.create({
         fontSize: 17,
         fontWeight: "800",
         lineHeight: 23,
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     taskCount: {
         marginTop: 3,
         fontSize: 12,
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     addTaskButton: {
@@ -642,7 +647,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 13,
         paddingVertical: 10,
         borderRadius: 13,
-        backgroundColor: Theme.colors.primary,
+        backgroundColor: colors.primary,
     },
 
     addTaskButtonText: {
@@ -655,9 +660,9 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         marginBottom: 11,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: colors.border,
         borderRadius: 17,
-        backgroundColor: Theme.colors.surface,
+        backgroundColor: colors.surface,
         overflow: "hidden",
     },
 
@@ -685,19 +690,19 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: "800",
         lineHeight: 20,
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     completedTaskText: {
         textDecorationLine: "line-through",
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     taskDescription: {
         marginTop: 5,
         fontSize: 12,
         lineHeight: 18,
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     taskMetaRow: {
@@ -717,7 +722,7 @@ const styles = StyleSheet.create({
     metaText: {
         fontSize: 11,
         fontWeight: "600",
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     priorityDot: {
@@ -735,7 +740,7 @@ const styles = StyleSheet.create({
 
     statusText: {
         fontSize: 13,
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     errorText: {
@@ -743,7 +748,7 @@ const styles = StyleSheet.create({
         textAlign: "center",
         fontSize: 13,
         lineHeight: 19,
-        color: Theme.colors.error,
+        color: colors.error,
     },
 
     emptyState: {
@@ -751,9 +756,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 25,
         paddingVertical: 40,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: colors.border,
         borderRadius: 18,
-        backgroundColor: Theme.colors.surface,
+        backgroundColor: colors.surface,
     },
 
     emptyIcon: {
@@ -762,14 +767,14 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         borderRadius: 20,
-        backgroundColor: Theme.colors.primaryLight,
+        backgroundColor: colors.primaryLight,
     },
 
     emptyTitle: {
         marginTop: 14,
         fontSize: 17,
         fontWeight: "800",
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     emptyDescription: {
@@ -778,7 +783,7 @@ const styles = StyleSheet.create({
         textAlign: "center",
         fontSize: 13,
         lineHeight: 19,
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     emptyButton: {
@@ -789,7 +794,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 15,
         paddingVertical: 11,
         borderRadius: 13,
-        backgroundColor: Theme.colors.primary,
+        backgroundColor: colors.primary,
     },
 
     emptyButtonText: {

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { useColorScheme } from "react-native";
+import { useColorScheme, StatusBar } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, DarkColors } from "../constants/colors";
 
@@ -46,7 +46,7 @@ export function ThemeProvider({ children }) {
 
   const value = useMemo(() => ({ themePreference, themeLoading, isDark, colors, changeTheme }),
     [themePreference, themeLoading, isDark, colors]);
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return <ThemeContext.Provider value={value}><StatusBar barStyle={isDark ? "light-content" : "dark-content"} />{children}</ThemeContext.Provider>;
 }
 
 export function useAppTheme() {

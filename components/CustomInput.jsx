@@ -1,3 +1,4 @@
+import { useAppTheme } from "../contexts/ThemeContext";
 import React, { useState } from "react";
 import {
   View,
@@ -16,6 +17,9 @@ export default function CustomInput({
   keyboardType = "default",
   leftIcon,
 }) {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+
   const [hidePassword, setHidePassword] = useState(secureTextEntry);
 
   return (
@@ -25,7 +29,7 @@ export default function CustomInput({
           <Ionicons
             name={leftIcon}
             size={20}
-            color={Theme.colors.secondaryText}
+            color={colors.secondaryText}
           />
         </View>
       )}
@@ -37,7 +41,7 @@ export default function CustomInput({
           secureTextEntry && styles.inputWithPassword,
         ]}
         placeholder={placeholder}
-        placeholderTextColor={Theme.colors.secondaryText}
+        placeholderTextColor={colors.secondaryText}
         value={value}
         onChangeText={onChangeText}
         secureTextEntry={hidePassword}
@@ -53,7 +57,7 @@ export default function CustomInput({
           <Ionicons
             name={hidePassword ? "eye-off" : "eye"}
             size={22}
-            color={Theme.colors.secondaryText}
+            color={colors.secondaryText}
           />
         </TouchableOpacity>
       )}
@@ -61,20 +65,20 @@ export default function CustomInput({
   );
 }
 
-const styles = StyleSheet.create({
+const make_styles = (colors) => StyleSheet.create({
   container: {
     marginVertical: Theme.spacing.sm,
     position: "relative",
   },
 
   input: {
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: Theme.radius.md,
     padding: 16,
     fontSize: Theme.fonts.body,
-    color: Theme.colors.text,
+    color: colors.text,
     paddingRight: 50,
   },
 

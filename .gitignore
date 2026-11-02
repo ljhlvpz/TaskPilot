@@ -39,3 +39,24 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Firebase configuration files
+google-services.json
+**/google-services.json
+GoogleService-Info.plist
+
+# Android signing credentials
+*.keystore
+
+# Local debugging files
+mic-debug.txt
+mic-errors.txt
+taskpilot-mic-crash.txt
+
+# Duplicate image files
+assets/* (1).png

@@ -1,7 +1,12 @@
+import React from "react";
+import { useAppTheme } from "../contexts/ThemeContext";
 import { View, Text, StyleSheet } from "react-native";
 import { Theme } from "../constants/theme";
 
 export default function Logo() {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>TaskPilot</Text>
@@ -13,7 +18,7 @@ export default function Logo() {
   );
 }
 
-const styles = StyleSheet.create({
+const make_styles = (colors) => StyleSheet.create({
   container: {
   alignItems: "center",
   marginBottom: Theme.spacing.xl,
@@ -22,12 +27,12 @@ const styles = StyleSheet.create({
   logo: {
     fontSize: 34,
     fontWeight: "bold",
-    color: Theme.colors.primary,
+    color: colors.primary,
   },
 
   tagline: {
     marginTop: 6,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
     fontSize: Theme.fonts.body,
   },
 });

@@ -1,3 +1,5 @@
+import React from "react";
+import { useAppTheme } from "../../contexts/ThemeContext";
 import { useEffect, useState } from "react";
 
 import {
@@ -28,6 +30,9 @@ import {
 import { Theme } from "../../constants/theme";
 
 export default function NotesScreen() {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -246,9 +251,9 @@ export default function NotesScreen() {
           }}
         >
           {deletingId === item.id ? (
-            <ActivityIndicator size="small" color={Theme.colors.error} />
+            <ActivityIndicator size="small" color={colors.error} />
           ) : (
-            <Ionicons name="trash-outline" size={20} color={Theme.colors.error} />
+            <Ionicons name="trash-outline" size={20} color={colors.error} />
           )}
         </TouchableOpacity>
       </TouchableOpacity>
@@ -285,7 +290,7 @@ export default function NotesScreen() {
           <Ionicons
             name="add"
             size={32}
-            color={Theme.colors.surface}
+            color={colors.surface}
           />
         </TouchableOpacity>
       </View>
@@ -303,7 +308,7 @@ export default function NotesScreen() {
         </View>
       ) : errorMessage ? (
         <View style={styles.centerContent}>
-          <Ionicons name="alert-circle-outline" size={48} color={Theme.colors.error} />
+          <Ionicons name="alert-circle-outline" size={48} color={colors.error} />
           <Text style={styles.emptyText}>{errorMessage}</Text>
         </View>
       ) : notes.length === 0 ? (
@@ -311,7 +316,7 @@ export default function NotesScreen() {
           <Ionicons
             name="document-text-outline"
             size={64}
-            color={Theme.colors.primary}
+            color={colors.primary}
           />
 
           <Text style={styles.emptyTitle}>
@@ -369,7 +374,7 @@ export default function NotesScreen() {
                 <Ionicons
                   name="close"
                   size={28}
-                  color={Theme.colors.text}
+                  color={colors.text}
                 />
               </TouchableOpacity>
             </View>
@@ -381,7 +386,7 @@ export default function NotesScreen() {
               style={styles.titleInput}
               placeholder="Note title"
               placeholderTextColor={
-                Theme.colors.secondaryText
+                colors.secondaryText
               }
               value={title}
               onChangeText={setTitle}
@@ -395,7 +400,7 @@ export default function NotesScreen() {
               style={styles.contentInput}
               placeholder="Write your note here..."
               placeholderTextColor={
-                Theme.colors.secondaryText
+                colors.secondaryText
               }
               value={content}
               onChangeText={setContent}
@@ -420,7 +425,7 @@ export default function NotesScreen() {
                   <Ionicons
                     name="trash-outline"
                     size={20}
-                    color={Theme.colors.error}
+                    color={colors.error}
                   />
 
                   <Text
@@ -464,7 +469,7 @@ export default function NotesScreen() {
 // STYLES
 // =============================================
 
-const styles = StyleSheet.create({
+const make_styles = (colors) => StyleSheet.create({
 
   // -----------------------------------------
   // SCREEN
@@ -472,7 +477,7 @@ const styles = StyleSheet.create({
 
   container: {
     flex: 1,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
   },
 
 
@@ -493,14 +498,14 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 28,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   subtitle: {
     marginTop: 6,
     fontSize: 14,
     lineHeight: 19,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   addButton: {
@@ -508,7 +513,7 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 26,
 
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
 
     alignItems: "center",
     justifyContent: "center",
@@ -525,11 +530,11 @@ const styles = StyleSheet.create({
   },
 
   noteCard: {
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
 
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
 
     padding: 17,
     marginBottom: 14,
@@ -546,14 +551,14 @@ const styles = StyleSheet.create({
   noteTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
     marginBottom: 8,
   },
 
   noteText: {
     fontSize: 15,
     lineHeight: 21,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   deleteButton: {
@@ -576,21 +581,21 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 15,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   emptyTitle: {
     marginTop: 18,
     fontSize: 20,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   emptyText: {
     marginTop: 8,
     textAlign: "center",
     fontSize: 14,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
 
@@ -605,7 +610,7 @@ const styles = StyleSheet.create({
   },
 
   modalContainer: {
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
 
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -624,7 +629,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 22,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
 
@@ -634,7 +639,7 @@ const styles = StyleSheet.create({
 
   titleInput: {
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
 
     borderRadius: 12,
 
@@ -642,14 +647,14 @@ const styles = StyleSheet.create({
     height: 50,
 
     fontSize: 16,
-    color: Theme.colors.text,
+    color: colors.text,
 
     marginBottom: 12,
   },
 
   contentInput: {
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
 
     borderRadius: 12,
 
@@ -661,7 +666,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
 
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
 
@@ -683,7 +688,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
 
-    borderColor: Theme.colors.error,
+    borderColor: colors.error,
 
     flexDirection: "row",
     alignItems: "center",
@@ -693,7 +698,7 @@ const styles = StyleSheet.create({
   },
 
   modalDeleteText: {
-    color: Theme.colors.error,
+    color: colors.error,
     fontWeight: "600",
     fontSize: 15,
   },
@@ -704,14 +709,14 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 12,
 
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
 
     alignItems: "center",
     justifyContent: "center",
   },
 
   saveButtonText: {
-    color: Theme.colors.surface,
+    color: colors.surface,
     fontSize: 16,
     fontWeight: "700",
   },

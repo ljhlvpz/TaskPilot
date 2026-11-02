@@ -1,3 +1,5 @@
+import React from "react";
+import { useAppTheme } from "../../contexts/ThemeContext";
 import { auth } from "../../firebase/firebaseConfig";
 import { scheduleTaskReminder } from "../../services/notificationService";
 import { useEffect, useState } from "react";
@@ -70,6 +72,9 @@ const PRIORITIES = [
 ];
 
 export default function EditTask() {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+
   const router = useRouter();
   const params = useLocalSearchParams();
 
@@ -388,7 +393,7 @@ if (loading) {
       <View style={styles.centerContainer}>
         <ActivityIndicator
           size="large"
-          color={Theme.colors.primary}
+          color={colors.primary}
         />
 
         <Text style={styles.loadingMessage}>
@@ -411,7 +416,7 @@ if (loadError) {
           <Ionicons
             name="arrow-back"
             size={23}
-            color={Theme.colors.text}
+            color={colors.text}
           />
         </TouchableOpacity>
 
@@ -425,7 +430,7 @@ if (loadError) {
           <Ionicons
             name="alert-circle-outline"
             size={40}
-            color={Theme.colors.error}
+            color={colors.error}
           />
         </View>
 
@@ -467,7 +472,7 @@ if (loadError) {
             <Ionicons
               name="arrow-back"
               size={23}
-              color={Theme.colors.text}
+              color={colors.text}
             />
           </TouchableOpacity>
 
@@ -491,7 +496,7 @@ if (loadError) {
               <Ionicons
                 name="sparkles-outline"
                 size={25}
-                color={Theme.colors.primary}
+                color={colors.primary}
               />
             </View>
 
@@ -513,14 +518,14 @@ if (loadError) {
             <Ionicons
               name="checkmark-circle-outline"
               size={21}
-              color={Theme.colors.secondaryText}
+              color={colors.secondaryText}
             />
 
             <TextInput
               value={title}
               onChangeText={setTitle}
               placeholder="What do you need to do?"
-              placeholderTextColor={Theme.colors.secondaryText}
+              placeholderTextColor={colors.secondaryText}
               style={styles.input}
               maxLength={100}
               returnKeyType="next"
@@ -544,7 +549,7 @@ if (loadError) {
               value={description}
               onChangeText={setDescription}
               placeholder="Add helpful details..."
-              placeholderTextColor={Theme.colors.secondaryText}
+              placeholderTextColor={colors.secondaryText}
               style={[styles.input, styles.descriptionInput]}
               multiline
               textAlignVertical="top"
@@ -574,7 +579,7 @@ if (loadError) {
                     color={
                       selected
                         ? "#FFFFFF"
-                        : Theme.colors.secondaryText
+                        : colors.secondaryText
                     }
                   />
 
@@ -656,8 +661,8 @@ if (loadError) {
     size={21}
     color={
       dueDate
-        ? Theme.colors.primary
-        : Theme.colors.secondaryText
+        ? colors.primary
+        : colors.secondaryText
     }
   />
 
@@ -673,7 +678,7 @@ if (loadError) {
   <Ionicons
     name="chevron-down-outline"
     size={20}
-    color={Theme.colors.secondaryText}
+    color={colors.secondaryText}
   />
 </TouchableOpacity>
 
@@ -705,7 +710,7 @@ if (loadError) {
     <Ionicons
       name="close-circle-outline"
       size={16}
-      color={Theme.colors.secondaryText}
+      color={colors.secondaryText}
     />
 
     <Text style={styles.clearSelectionText}>
@@ -726,8 +731,8 @@ if (loadError) {
     size={21}
     color={
       dueTime
-        ? Theme.colors.primary
-        : Theme.colors.secondaryText
+        ? colors.primary
+        : colors.secondaryText
     }
   />
 
@@ -743,7 +748,7 @@ if (loadError) {
   <Ionicons
     name="chevron-down-outline"
     size={20}
-    color={Theme.colors.secondaryText}
+    color={colors.secondaryText}
   />
 </TouchableOpacity>
 
@@ -775,7 +780,7 @@ if (loadError) {
     <Ionicons
       name="close-circle-outline"
       size={16}
-      color={Theme.colors.secondaryText}
+      color={colors.secondaryText}
     />
 
     <Text style={styles.clearSelectionText}>
@@ -829,27 +834,27 @@ if (loadError) {
   );
 }
 
-const styles = StyleSheet.create({
+const make_styles = (colors) => StyleSheet.create({
     pickerText: {
   flex: 1,
   marginLeft: 10,
   fontSize: 15,
   fontWeight: "500",
-  color: Theme.colors.text,
+  color: colors.text,
 },
 
 pickerPlaceholder: {
   fontWeight: "400",
-  color: Theme.colors.secondaryText,
+  color: colors.secondaryText,
 },
 
 pickerContainer: {
   marginTop: 10,
   padding: 12,
   borderWidth: 1,
-  borderColor: Theme.colors.border,
+  borderColor: colors.border,
   borderRadius: 16,
-  backgroundColor: Theme.colors.surface,
+  backgroundColor: colors.surface,
   overflow: "hidden",
 },
 
@@ -859,7 +864,7 @@ pickerDoneButton: {
   justifyContent: "center",
   marginTop: 8,
   borderRadius: 12,
-  backgroundColor: Theme.colors.primary,
+  backgroundColor: colors.primary,
 },
 
 pickerDoneText: {
@@ -880,11 +885,11 @@ clearSelectionButton: {
 clearSelectionText: {
   fontSize: 12,
   fontWeight: "600",
-  color: Theme.colors.secondaryText,
+  color: colors.secondaryText,
 },
   safeArea: {
     flex: 1,
-    backgroundColor: Theme.colors.background,
+    backgroundColor: colors.background,
   },
 
   keyboardView: {
@@ -898,8 +903,8 @@ clearSelectionText: {
     paddingTop: 8,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-    backgroundColor: Theme.colors.background,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.background,
   },
 
   backButton: {
@@ -909,9 +914,9 @@ clearSelectionText: {
     justifyContent: "center",
     marginRight: 12,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: 14,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   headerTextContainer: {
@@ -921,13 +926,13 @@ clearSelectionText: {
   headerTitle: {
     fontSize: 22,
     fontWeight: "800",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   headerSubtitle: {
     marginTop: 2,
     fontSize: 13,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   scrollContent: {
@@ -945,9 +950,9 @@ clearSelectionText: {
     marginBottom: 24,
     padding: 16,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: 18,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   introIcon: {
@@ -957,7 +962,7 @@ clearSelectionText: {
     justifyContent: "center",
     marginRight: 12,
     borderRadius: 16,
-    backgroundColor: Theme.colors.primaryLight,
+    backgroundColor: colors.primaryLight,
   },
 
   introTextContainer: {
@@ -967,14 +972,14 @@ clearSelectionText: {
   introTitle: {
     fontSize: 15,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   introDescription: {
     marginTop: 3,
     fontSize: 13,
     lineHeight: 18,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   label: {
@@ -982,11 +987,11 @@ clearSelectionText: {
     marginBottom: 9,
     fontSize: 14,
     fontWeight: "700",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   required: {
-    color: Theme.colors.error,
+    color: colors.error,
   },
 
   inputContainer: {
@@ -995,9 +1000,9 @@ clearSelectionText: {
     alignItems: "center",
     paddingHorizontal: 15,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: 16,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   input: {
@@ -1005,7 +1010,7 @@ clearSelectionText: {
     minHeight: 51,
     marginLeft: 10,
     fontSize: 15,
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   descriptionContainer: {
@@ -1030,12 +1035,12 @@ clearSelectionText: {
     marginTop: 7,
     fontSize: 12,
     lineHeight: 17,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   characterCount: {
     fontSize: 12,
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   optionGrid: {
@@ -1051,20 +1056,20 @@ clearSelectionText: {
     paddingHorizontal: 13,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: 14,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   categoryButtonSelected: {
-    borderColor: Theme.colors.primary,
-    backgroundColor: Theme.colors.primary,
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
 
   categoryText: {
     fontSize: 13,
     fontWeight: "600",
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   categoryTextSelected: {
@@ -1085,9 +1090,9 @@ clearSelectionText: {
     gap: 6,
     paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: Theme.colors.border,
+    borderColor: colors.border,
     borderRadius: 14,
-    backgroundColor: Theme.colors.surface,
+    backgroundColor: colors.surface,
   },
 
   priorityDot: {
@@ -1099,7 +1104,7 @@ clearSelectionText: {
   priorityLabel: {
     fontSize: 12,
     fontWeight: "700",
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
 
   sectionTitle: {
@@ -1107,7 +1112,7 @@ clearSelectionText: {
     marginBottom: 1,
     fontSize: 18,
     fontWeight: "800",
-    color: Theme.colors.text,
+    color: colors.text,
   },
 
   saveButton: {
@@ -1118,7 +1123,7 @@ clearSelectionText: {
     gap: 9,
     marginTop: 30,
     borderRadius: 17,
-    backgroundColor: Theme.colors.primary,
+    backgroundColor: colors.primary,
   },
 
   saveButtonDisabled: {
@@ -1141,7 +1146,7 @@ clearSelectionText: {
   cancelButtonText: {
     fontSize: 14,
     fontWeight: "700",
-    color: Theme.colors.secondaryText,
+    color: colors.secondaryText,
   },
   centerContainer: {
   flex: 1,
@@ -1153,7 +1158,7 @@ clearSelectionText: {
 loadingMessage: {
   marginTop: 14,
   fontSize: 14,
-  color: Theme.colors.secondaryText,
+  color: colors.secondaryText,
 },
 
 errorHeader: {
@@ -1162,14 +1167,14 @@ errorHeader: {
   paddingHorizontal: 18,
   paddingVertical: 12,
   borderBottomWidth: 1,
-  borderBottomColor: Theme.colors.border,
+  borderBottomColor: colors.border,
 },
 
 errorHeaderTitle: {
   marginLeft: 12,
   fontSize: 21,
   fontWeight: "800",
-  color: Theme.colors.text,
+  color: colors.text,
 },
 
 errorIconContainer: {
@@ -1178,14 +1183,14 @@ errorIconContainer: {
   alignItems: "center",
   justifyContent: "center",
   borderRadius: 24,
-  backgroundColor: Theme.colors.primaryLight,
+  backgroundColor: colors.primaryLight,
 },
 
 errorTitle: {
   marginTop: 17,
   fontSize: 20,
   fontWeight: "800",
-  color: Theme.colors.text,
+  color: colors.text,
 },
 
 errorDescription: {
@@ -1194,7 +1199,7 @@ errorDescription: {
   textAlign: "center",
   fontSize: 14,
   lineHeight: 21,
-  color: Theme.colors.secondaryText,
+  color: colors.secondaryText,
 },
 
 returnButton: {
@@ -1204,7 +1209,7 @@ returnButton: {
   marginTop: 22,
   paddingHorizontal: 22,
   borderRadius: 15,
-  backgroundColor: Theme.colors.primary,
+  backgroundColor: colors.primary,
 },
 
 returnButtonText: {

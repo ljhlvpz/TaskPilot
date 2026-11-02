@@ -1,3 +1,5 @@
+import React from "react";
+import { useAppTheme } from "../../contexts/ThemeContext";
 import { Ionicons } from "@expo/vector-icons";
 import {
     useEffect,
@@ -641,6 +643,9 @@ const parseMoveTaskCommand = (message) => {
     };
 };
 export default function AssistantScreen() {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+
     // Prevent rapid taps from starting overlapping recognition sessions.
     const voiceBusyRef = useRef(false);
     const voiceActiveRef = useRef(false);
@@ -1789,7 +1794,7 @@ export default function AssistantScreen() {
                 <View style={styles.typingBubble}>
                     <ActivityIndicator
                         size="small"
-                        color={Theme.colors.primary}
+                        color={colors.primary}
                     />
 
                     <Text style={styles.typingText}>
@@ -1847,7 +1852,7 @@ export default function AssistantScreen() {
                         <Ionicons
                             name="refresh-outline"
                             size={22}
-                            color={Theme.colors.text}
+                            color={colors.text}
                         />
                     </TouchableOpacity>
                 </View>
@@ -1888,7 +1893,7 @@ export default function AssistantScreen() {
                                     name={item.icon}
                                     size={17}
                                     color={
-                                        Theme.colors.primary
+                                        colors.primary
                                     }
                                 />
 
@@ -1927,7 +1932,7 @@ export default function AssistantScreen() {
                                 <Ionicons
                                     name="checkmark-circle-outline"
                                     size={21}
-                                    color={Theme.colors.primary}
+                                    color={colors.primary}
                                 />
 
                                 <Text style={styles.confirmationTitle}>
@@ -1988,7 +1993,7 @@ export default function AssistantScreen() {
                                 <Ionicons
                                     name="checkmark-done-circle-outline"
                                     size={21}
-                                    color={Theme.colors.primary}
+                                    color={colors.primary}
                                 />
 
                                 <Text style={styles.confirmationTitle}>
@@ -2049,7 +2054,7 @@ export default function AssistantScreen() {
                                 <Ionicons
                                     name="trash-outline"
                                     size={21}
-                                    color={Theme.colors.error}
+                                    color={colors.error}
                                 />
 
                                 <Text style={styles.confirmationTitle}>
@@ -2110,7 +2115,7 @@ export default function AssistantScreen() {
                                 <Ionicons
                                     name="create-outline"
                                     size={21}
-                                    color={Theme.colors.primary}
+                                    color={colors.primary}
                                 />
 
                                 <Text style={styles.confirmationTitle}>
@@ -2176,7 +2181,7 @@ export default function AssistantScreen() {
                                 color={
                                     isListening
                                         ? "#FFFFFF"
-                                        : Theme.colors.primary
+                                        : colors.primary
                                 }
                             />
                         </TouchableOpacity>
@@ -2186,7 +2191,7 @@ export default function AssistantScreen() {
                             onChangeText={setInput}
                             placeholder="Ask TaskPilot AI..."
                             placeholderTextColor={
-                                Theme.colors.secondaryText
+                                colors.secondaryText
                             }
                             style={styles.input}
                             multiline
@@ -2229,19 +2234,19 @@ export default function AssistantScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const make_styles = (colors) => StyleSheet.create({
     confirmationContainer: {
         paddingHorizontal: 16,
         paddingVertical: 10,
-        backgroundColor: Theme.colors.background,
+        backgroundColor: colors.background,
     },
 
     confirmationCard: {
         padding: 14,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: colors.border,
         borderRadius: 16,
-        backgroundColor: Theme.colors.surface,
+        backgroundColor: colors.surface,
     },
 
     confirmationHeader: {
@@ -2254,20 +2259,20 @@ const styles = StyleSheet.create({
     confirmationTitle: {
         fontSize: 14,
         fontWeight: "800",
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     confirmationTaskTitle: {
         marginBottom: 8,
         fontSize: 16,
         fontWeight: "700",
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     confirmationDetail: {
         marginBottom: 3,
         fontSize: 13,
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     confirmationActions: {
@@ -2281,13 +2286,13 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 10,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: colors.border,
         borderRadius: 12,
     },
 
     cancelButtonText: {
         fontWeight: "700",
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     confirmButton: {
@@ -2297,7 +2302,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 10,
         borderRadius: 12,
-        backgroundColor: Theme.colors.primary,
+        backgroundColor: colors.primary,
     },
 
     confirmButtonText: {
@@ -2306,7 +2311,7 @@ const styles = StyleSheet.create({
     },
     safeArea: {
         flex: 1,
-        backgroundColor: Theme.colors.background,
+        backgroundColor: colors.background,
     },
 
     container: {
@@ -2320,8 +2325,8 @@ const styles = StyleSheet.create({
         paddingTop: 10,
         paddingBottom: 13,
         borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.border,
-        backgroundColor: Theme.colors.background,
+        borderBottomColor: colors.border,
+        backgroundColor: colors.background,
     },
 
     headerIcon: {
@@ -2331,7 +2336,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         marginRight: 11,
         borderRadius: 15,
-        backgroundColor: Theme.colors.primary,
+        backgroundColor: colors.primary,
     },
 
     headerTextContainer: {
@@ -2341,7 +2346,7 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 19,
         fontWeight: "800",
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     statusRow: {
@@ -2360,7 +2365,7 @@ const styles = StyleSheet.create({
 
     headerSubtitle: {
         fontSize: 12,
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     refreshButton: {
@@ -2369,9 +2374,9 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: colors.border,
         borderRadius: 14,
-        backgroundColor: Theme.colors.surface,
+        backgroundColor: colors.surface,
     },
 
     fixedTools: {
@@ -2379,21 +2384,21 @@ const styles = StyleSheet.create({
         paddingTop: 14,
         paddingBottom: 12,
         borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.border,
-        backgroundColor: Theme.colors.background,
+        borderBottomColor: colors.border,
+        backgroundColor: colors.background,
     },
 
     welcomeTitle: {
         fontSize: 20,
         fontWeight: "800",
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     welcomeDescription: {
         marginTop: 4,
         fontSize: 13,
         lineHeight: 19,
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     quickActionsContainer: {
@@ -2409,9 +2414,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 13,
         paddingVertical: 10,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: colors.border,
         borderRadius: 14,
-        backgroundColor: Theme.colors.surface,
+        backgroundColor: colors.surface,
     },
 
     quickActionDisabled: {
@@ -2421,7 +2426,7 @@ const styles = StyleSheet.create({
     quickActionText: {
         fontSize: 13,
         fontWeight: "700",
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     messageList: {
@@ -2456,7 +2461,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         marginRight: 8,
         borderRadius: 12,
-        backgroundColor: Theme.colors.primary,
+        backgroundColor: colors.primary,
     },
 
     messageBubble: {
@@ -2468,21 +2473,21 @@ const styles = StyleSheet.create({
 
     userBubble: {
         borderBottomRightRadius: 5,
-        backgroundColor: Theme.colors.primary,
+        backgroundColor: colors.primary,
     },
 
     assistantBubble: {
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: colors.border,
         borderTopLeftRadius: 5,
-        backgroundColor: Theme.colors.surface,
+        backgroundColor: colors.surface,
     },
 
     assistantName: {
         marginBottom: 4,
         fontSize: 11,
         fontWeight: "800",
-        color: Theme.colors.primary,
+        color: colors.primary,
     },
 
     messageText: {
@@ -2495,7 +2500,7 @@ const styles = StyleSheet.create({
     },
 
     assistantMessageText: {
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     typingRow: {
@@ -2511,14 +2516,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         paddingVertical: 12,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: colors.border,
         borderRadius: 16,
-        backgroundColor: Theme.colors.surface,
+        backgroundColor: colors.surface,
     },
 
     typingText: {
         fontSize: 13,
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     footerSpacing: {
@@ -2530,12 +2535,12 @@ const styles = StyleSheet.create({
         paddingTop: 10,
         paddingBottom: Platform.OS === "ios" ? 5 : 11,
         borderTopWidth: 1,
-        borderTopColor: Theme.colors.border,
-        backgroundColor: Theme.colors.surface,
+        borderTopColor: colors.border,
+        backgroundColor: colors.surface,
     },
 
     voiceButtonListening: {
-        backgroundColor: Theme.colors.primary,
+        backgroundColor: colors.primary,
     },
 
     inputContainer: {
@@ -2544,9 +2549,9 @@ const styles = StyleSheet.create({
         alignItems: "flex-end",
         padding: 6,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: colors.border,
         borderRadius: 18,
-        backgroundColor: Theme.colors.background,
+        backgroundColor: colors.background,
     },
 
     voiceButton: {
@@ -2565,7 +2570,7 @@ const styles = StyleSheet.create({
         paddingTop: Platform.OS === "ios" ? 11 : 8,
         paddingBottom: 8,
         fontSize: 15,
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     sendButton: {
@@ -2574,7 +2579,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         borderRadius: 14,
-        backgroundColor: Theme.colors.primary,
+        backgroundColor: colors.primary,
     },
 
     sendButtonDisabled: {
@@ -2585,7 +2590,7 @@ const styles = StyleSheet.create({
         marginTop: 7,
         textAlign: "center",
         fontSize: 10,
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
     deleteConfirmButton: {
         flexDirection: "row",
@@ -2594,6 +2599,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 10,
         borderRadius: 12,
-        backgroundColor: Theme.colors.error,
+        backgroundColor: colors.error,
     },
 });

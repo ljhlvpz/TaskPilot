@@ -1,17 +1,29 @@
+
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+
 import { AuthProvider } from "../contexts/AuthContext";
 import { ThemeProvider, useAppTheme } from "../contexts/ThemeContext";
 import PinGate from "../components/PinGate";
+import NotificationNavigation from "../components/NotificationNavigation";
 
 function AppNavigator() {
   const { isDark, colors } = useAppTheme();
+
   return (
     <>
       <StatusBar style={isDark ? "light" : "dark"} />
+
       <AuthProvider>
         <PinGate>
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: {
+                backgroundColor: colors.background,
+              },
+            }}
+          >
             <Stack.Screen name="index" />
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(tabs)" />
@@ -24,6 +36,8 @@ function AppNavigator() {
             <Stack.Screen name="edit-task/[id]" />
             <Stack.Screen name="task/[id]" />
           </Stack>
+
+          <NotificationNavigation />
         </PinGate>
       </AuthProvider>
     </>
@@ -31,5 +45,9 @@ function AppNavigator() {
 }
 
 export default function RootLayout() {
-  return <ThemeProvider><AppNavigator /></ThemeProvider>;
+  return (
+    <ThemeProvider>
+      <AppNavigator />
+    </ThemeProvider>
+  );
 }

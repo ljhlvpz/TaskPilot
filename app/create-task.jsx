@@ -1,3 +1,5 @@
+import React from "react";
+import { useAppTheme } from "../contexts/ThemeContext";
 import {
     View,
     Text,
@@ -66,6 +68,9 @@ const PRIORITIES = [
 ];
 
 export default function CreateTask() {
+  const { colors } = useAppTheme();
+  const styles = React.useMemo(() => make_styles(colors), [colors]);
+
     const router = useRouter();
 
     const [title, setTitle] = useState("");
@@ -240,7 +245,7 @@ export default function CreateTask() {
             );
 
             Alert.alert(
-                "Task added! 🎉",
+                "Task added!",
                 reminderScheduled
                     ? "Your task was saved and its reminder is scheduled."
                     : hasSchedule
@@ -281,7 +286,7 @@ export default function CreateTask() {
                         <Ionicons
                             name="arrow-back"
                             size={23}
-                            color={Theme.colors.text}
+                            color={colors.text}
                         />
                     </TouchableOpacity>
 
@@ -305,7 +310,7 @@ export default function CreateTask() {
                             <Ionicons
                                 name="sparkles-outline"
                                 size={25}
-                                color={Theme.colors.primary}
+                                color={colors.primary}
                             />
                         </View>
 
@@ -328,14 +333,14 @@ export default function CreateTask() {
                         <Ionicons
                             name="checkmark-circle-outline"
                             size={21}
-                            color={Theme.colors.secondaryText}
+                            color={colors.secondaryText}
                         />
 
                         <TextInput
                             value={title}
                             onChangeText={setTitle}
                             placeholder="What do you need to do?"
-                            placeholderTextColor={Theme.colors.secondaryText}
+                            placeholderTextColor={colors.secondaryText}
                             style={styles.input}
                             maxLength={100}
                             returnKeyType="next"
@@ -359,7 +364,7 @@ export default function CreateTask() {
                             value={description}
                             onChangeText={setDescription}
                             placeholder="Add helpful details..."
-                            placeholderTextColor={Theme.colors.secondaryText}
+                            placeholderTextColor={colors.secondaryText}
                             style={[styles.input, styles.descriptionInput]}
                             multiline
                             textAlignVertical="top"
@@ -389,7 +394,7 @@ export default function CreateTask() {
                                         color={
                                             selected
                                                 ? "#FFFFFF"
-                                                : Theme.colors.secondaryText
+                                                : colors.secondaryText
                                         }
                                     />
 
@@ -471,8 +476,8 @@ export default function CreateTask() {
                             size={21}
                             color={
                                 dueDate
-                                    ? Theme.colors.primary
-                                    : Theme.colors.secondaryText
+                                    ? colors.primary
+                                    : colors.secondaryText
                             }
                         />
 
@@ -488,7 +493,7 @@ export default function CreateTask() {
                         <Ionicons
                             name="chevron-down-outline"
                             size={20}
-                            color={Theme.colors.secondaryText}
+                            color={colors.secondaryText}
                         />
                     </TouchableOpacity>
 
@@ -521,7 +526,7 @@ export default function CreateTask() {
                             <Ionicons
                                 name="close-circle-outline"
                                 size={16}
-                                color={Theme.colors.secondaryText}
+                                color={colors.secondaryText}
                             />
 
                             <Text style={styles.clearSelectionText}>
@@ -542,8 +547,8 @@ export default function CreateTask() {
                             size={21}
                             color={
                                 dueTime
-                                    ? Theme.colors.primary
-                                    : Theme.colors.secondaryText
+                                    ? colors.primary
+                                    : colors.secondaryText
                             }
                         />
 
@@ -559,7 +564,7 @@ export default function CreateTask() {
                         <Ionicons
                             name="chevron-down-outline"
                             size={20}
-                            color={Theme.colors.secondaryText}
+                            color={colors.secondaryText}
                         />
                     </TouchableOpacity>
 
@@ -591,7 +596,7 @@ export default function CreateTask() {
                             <Ionicons
                                 name="close-circle-outline"
                                 size={16}
-                                color={Theme.colors.secondaryText}
+                                color={colors.secondaryText}
                             />
 
                             <Text style={styles.clearSelectionText}>
@@ -646,27 +651,27 @@ export default function CreateTask() {
 }
 
 
-const styles = StyleSheet.create({
+const make_styles = (colors) => StyleSheet.create({
     pickerText: {
         flex: 1,
         marginLeft: 10,
         fontSize: 15,
         fontWeight: "500",
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     pickerPlaceholder: {
         fontWeight: "400",
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     pickerContainer: {
         marginTop: 10,
         padding: 12,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: colors.border,
         borderRadius: 16,
-        backgroundColor: Theme.colors.surface,
+        backgroundColor: colors.surface,
         overflow: "hidden",
     },
 
@@ -676,7 +681,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         marginTop: 8,
         borderRadius: 12,
-        backgroundColor: Theme.colors.primary,
+        backgroundColor: colors.primary,
     },
 
     pickerDoneText: {
@@ -697,11 +702,11 @@ const styles = StyleSheet.create({
     clearSelectionText: {
         fontSize: 12,
         fontWeight: "600",
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
     safeArea: {
         flex: 1,
-        backgroundColor: Theme.colors.background,
+        backgroundColor: colors.background,
     },
 
     keyboardView: {
@@ -715,8 +720,8 @@ const styles = StyleSheet.create({
         paddingTop: 8,
         paddingBottom: 14,
         borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.border,
-        backgroundColor: Theme.colors.background,
+        borderBottomColor: colors.border,
+        backgroundColor: colors.background,
     },
 
     backButton: {
@@ -726,9 +731,9 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         marginRight: 12,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: colors.border,
         borderRadius: 14,
-        backgroundColor: Theme.colors.surface,
+        backgroundColor: colors.surface,
     },
 
     headerTextContainer: {
@@ -738,13 +743,13 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 22,
         fontWeight: "800",
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     headerSubtitle: {
         marginTop: 2,
         fontSize: 13,
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     scrollContent: {
@@ -762,9 +767,9 @@ const styles = StyleSheet.create({
         marginBottom: 24,
         padding: 16,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: colors.border,
         borderRadius: 18,
-        backgroundColor: Theme.colors.surface,
+        backgroundColor: colors.surface,
     },
 
     introIcon: {
@@ -774,7 +779,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         marginRight: 12,
         borderRadius: 16,
-        backgroundColor: Theme.colors.primaryLight,
+        backgroundColor: colors.primaryLight,
     },
 
     introTextContainer: {
@@ -784,14 +789,14 @@ const styles = StyleSheet.create({
     introTitle: {
         fontSize: 15,
         fontWeight: "700",
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     introDescription: {
         marginTop: 3,
         fontSize: 13,
         lineHeight: 18,
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     label: {
@@ -799,11 +804,11 @@ const styles = StyleSheet.create({
         marginBottom: 9,
         fontSize: 14,
         fontWeight: "700",
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     required: {
-        color: Theme.colors.error,
+        color: colors.error,
     },
 
     inputContainer: {
@@ -812,9 +817,9 @@ const styles = StyleSheet.create({
         alignItems: "center",
         paddingHorizontal: 15,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: colors.border,
         borderRadius: 16,
-        backgroundColor: Theme.colors.surface,
+        backgroundColor: colors.surface,
     },
 
     input: {
@@ -822,7 +827,7 @@ const styles = StyleSheet.create({
         minHeight: 51,
         marginLeft: 10,
         fontSize: 15,
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     descriptionContainer: {
@@ -847,12 +852,12 @@ const styles = StyleSheet.create({
         marginTop: 7,
         fontSize: 12,
         lineHeight: 17,
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     characterCount: {
         fontSize: 12,
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     optionGrid: {
@@ -868,20 +873,20 @@ const styles = StyleSheet.create({
         paddingHorizontal: 13,
         paddingVertical: 10,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: colors.border,
         borderRadius: 14,
-        backgroundColor: Theme.colors.surface,
+        backgroundColor: colors.surface,
     },
 
     categoryButtonSelected: {
-        borderColor: Theme.colors.primary,
-        backgroundColor: Theme.colors.primary,
+        borderColor: colors.primary,
+        backgroundColor: colors.primary,
     },
 
     categoryText: {
         fontSize: 13,
         fontWeight: "600",
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     categoryTextSelected: {
@@ -902,9 +907,9 @@ const styles = StyleSheet.create({
         gap: 6,
         paddingHorizontal: 8,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: colors.border,
         borderRadius: 14,
-        backgroundColor: Theme.colors.surface,
+        backgroundColor: colors.surface,
     },
 
     priorityDot: {
@@ -916,7 +921,7 @@ const styles = StyleSheet.create({
     priorityLabel: {
         fontSize: 12,
         fontWeight: "700",
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 
     sectionTitle: {
@@ -924,7 +929,7 @@ const styles = StyleSheet.create({
         marginBottom: 1,
         fontSize: 18,
         fontWeight: "800",
-        color: Theme.colors.text,
+        color: colors.text,
     },
 
     saveButton: {
@@ -935,7 +940,7 @@ const styles = StyleSheet.create({
         gap: 9,
         marginTop: 30,
         borderRadius: 17,
-        backgroundColor: Theme.colors.primary,
+        backgroundColor: colors.primary,
     },
 
     saveButtonDisabled: {
@@ -958,6 +963,6 @@ const styles = StyleSheet.create({
     cancelButtonText: {
         fontSize: 14,
         fontWeight: "700",
-        color: Theme.colors.secondaryText,
+        color: colors.secondaryText,
     },
 });

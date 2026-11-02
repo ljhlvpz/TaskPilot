@@ -12,14 +12,13 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useAuth } from "../hooks/useAuth";
+import { useAppTheme } from "../contexts/ThemeContext";
 import { hasPin, savePin } from "../utils/pinStorage";
 import PinKeypad from "../components/PinKeypad";
 
-const GREEN = "#1B3A1A";
-const BACKGROUND = "#F3F5EF";
-
 export default function PinSetupScreen() {
   const { user } = useAuth();
+  const { colors, isDark } = useAppTheme();
 
   const [step, setStep] = useState("create");
   const [busy, setBusy] = useState(false);
@@ -51,7 +50,10 @@ export default function PinSetupScreen() {
     }
 
     if (!user?.uid) {
-      Alert.alert("Session expired", "Please sign in again.");
+      Alert.alert(
+        "Session expired",
+        "Please sign in again."
+      );
       return;
     }
 
@@ -59,7 +61,6 @@ export default function PinSetupScreen() {
     setBusy(true);
 
     try {
-      // Prevent accidentally replacing an existing PIN.
       if (await hasPin(user.uid)) {
         Alert.alert(
           "PIN already exists",
@@ -82,7 +83,6 @@ export default function PinSetupScreen() {
       );
     } catch (error) {
       console.error("PIN setup error:", error);
-
       Alert.alert(
         "Unable to save PIN",
         "Please try again."
@@ -95,16 +95,29 @@ export default function PinSetupScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: colors.background },
+      ]}
+    >
       <Pressable
-        style={styles.backButton}
+        style={[
+          styles.backButton,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+          },
+        ]}
         onPress={() => router.back()}
         disabled={busy}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
       >
         <Ionicons
           name="arrow-back"
           size={24}
-          color={GREEN}
+          color={isDark ? colors.text : "#1B3A1A"}
         />
       </Pressable>
 
@@ -128,12 +141,17 @@ export default function PinSetupScreen() {
 
         {busy && (
           <ActivityIndicator
-            color={GREEN}
+            color={colors.primary}
             style={styles.loading}
           />
         )}
 
-        <Text style={styles.footer}>
+        <Text
+          style={[
+            styles.footer,
+            { color: colors.secondaryText },
+          ]}
+        >
           {step === "create"
             ? "Keep your PIN private and memorable."
             : "Your PINs must match to continue."}
@@ -146,31 +164,27 @@ export default function PinSetupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BACKGROUND,
   },
-
   backButton: {
     position: "absolute",
     top: 55,
     left: 24,
     zIndex: 2,
     padding: 8,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-
   content: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingTop: 35,
   },
-
   loading: {
     marginTop: 16,
   },
-
   footer: {
     fontSize: 12,
-    color: "#667765",
     textAlign: "center",
     marginTop: 24,
     paddingHorizontal: 24,
