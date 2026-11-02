@@ -19,6 +19,7 @@ import {
 
 import { Theme } from "../../constants/theme";
 import { auth } from "../../firebase/firebaseConfig";
+import { cancelTaskReminder, scheduleTaskReminder } from "../../services/notificationService";
 import {
   changeTaskCompletion,
   fetchTaskById,
@@ -137,26 +138,49 @@ export default function TaskDetails() {
       return;
     }
 
+    const currentUser = auth.currentUser;
+    if (!currentUser || (task.userId && task.userId !== currentUser.uid)) {
+      Alert.alert("Session unavailable", "Please sign in again to update this task.");
+      return;
+    }
+
     const nextCompletedState = !task.completed;
 
     try {
       setUpdating(true);
 
-      await changeTaskCompletion(
-        task.id,
-        nextCompletedState
-      );
+      // Save to Firestore before changing the local reminder.
+      await changeTaskCompletion(task.id, nextCompletedState);
 
-      setTask((currentTask) => ({
-        ...currentTask,
-        completed: nextCompletedState,
-      }));
+      setTask((currentTask) =>
+        currentTask
+          ? { ...currentTask, completed: nextCompletedState }
+          : currentTask
+      );
     } catch (error) {
       console.error("Update completion error:", error);
-
       Alert.alert(
         "Unable to update task",
         "Please check your connection and try again."
+      );
+      setUpdating(false);
+      return;
+    }
+
+    try {
+      if (nextCompletedState) {
+        await cancelTaskReminder(task.id, currentUser.uid);
+      } else {
+        await scheduleTaskReminder(currentUser.uid, task.id, {
+          ...task,
+          completed: false,
+        });
+      }
+    } catch (notificationError) {
+      console.error("Update task reminder error:", notificationError);
+      Alert.alert(
+        "Task saved",
+        "The task was updated, but its reminder could not be updated."
       );
     } finally {
       setUpdating(false);
@@ -164,29 +188,44 @@ export default function TaskDetails() {
   };
 
   const confirmDeleteTask = async () => {
-    if (!task?.id || deleting) {
+    if (!task?.id || deleting || updating) {
+      return;
+    }
+
+    const currentUser = auth.currentUser;
+    if (!currentUser || (task.userId && task.userId !== currentUser.uid)) {
+      Alert.alert("Session unavailable", "Please sign in again to delete this task.");
       return;
     }
 
     try {
       setDeleting(true);
 
+      // Delete from Firestore first. A failed delete leaves the reminder intact.
       await removeUserTask(task.id);
+
+      let reminderCancelled = true;
+      try {
+        await cancelTaskReminder(task.id, currentUser.uid);
+      } catch (notificationError) {
+        reminderCancelled = false;
+        console.error("Cancel deleted task reminder error:", notificationError);
+      }
 
       Alert.alert(
         "Task deleted",
-        "The task has been removed successfully.",
+        reminderCancelled
+          ? "The task and its scheduled reminder have been removed."
+          : "The task was deleted, but its scheduled reminder could not be cancelled.",
         [
           {
             text: "Done",
-            onPress: () =>
-              router.replace("/(tabs)/tasks"),
+            onPress: () => router.replace("/(tabs)/tasks"),
           },
         ]
       );
     } catch (error) {
       console.error("Delete task error:", error);
-
       Alert.alert(
         "Unable to delete task",
         "Something went wrong while deleting the task. Please try again."
@@ -418,7 +457,7 @@ export default function TaskDetails() {
 
             <Text style={styles.taskStatus}>
               {task.completed
-                ? "Completed — great work!"
+                ? "Completed â€” great work!"
                 : "Active task"}
             </Text>
           </View>

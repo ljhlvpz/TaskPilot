@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -64,6 +64,22 @@ export default function CalendarScreen() {
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState("");
+
+    // Refresh the default selected day after midnight without overwriting
+    // dates that the user explicitly selected.
+    const lastTodayRef = useRef(formatDateKey());
+    useFocusEffect(
+        useCallback(() => {
+            const today = formatDateKey();
+            if (lastTodayRef.current !== today) {
+                const previousToday = lastTodayRef.current;
+                setSelectedDate((previous) =>
+                    previous === previousToday ? today : previous
+                );
+                lastTodayRef.current = today;
+            }
+        }, [])
+    );
 
     useEffect(() => {
         if (authLoading) {
@@ -330,6 +346,7 @@ export default function CalendarScreen() {
                     <>
                         <View style={styles.calendarCard}>
                             <Calendar
+                                key={selectedDate.slice(0, 7)}
                                 current={selectedDate}
                                 markingType="multi-dot"
                                 markedDates={markedDates}

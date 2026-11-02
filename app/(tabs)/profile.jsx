@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -153,7 +154,11 @@ export default function Profile() {
       style={styles.safeArea}
       edges={["top"]}
     >
-      <View style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>
             Profile
@@ -223,7 +228,10 @@ export default function Profile() {
             style={styles.menuItem}
             activeOpacity={0.7}
             onPress={() => {
-              // Settings/preferences later.
+              Alert.alert(
+                "Preferences",
+                "Task reminders use your device notification settings. You can manage TaskPilot notification permissions in Android Settings. More customization options are coming soon."
+              );
             }}
           >
             <View style={styles.menuIcon}>
@@ -321,7 +329,7 @@ export default function Profile() {
         <Text style={styles.versionText}>
           TaskPilot v1.0.0
         </Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -334,7 +342,11 @@ const styles = StyleSheet.create({
 
   container: {
     flex: 1,
+  },
+
+  scrollContent: {
     paddingHorizontal: 18,
+    paddingBottom: 40,
   },
 
   header: {

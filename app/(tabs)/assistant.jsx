@@ -6,6 +6,8 @@ import {
 } from "react";
 import {
     ActivityIndicator,
+    Alert,
+    DeviceEventEmitter,
     FlatList,
     KeyboardAvoidingView,
     Platform,
@@ -18,6 +20,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Theme } from "../../constants/theme";
+import { scheduleTaskReminder, cancelTaskReminder } from "../../services/notificationService";
 import { useAuth } from "../../hooks/useAuth";
 import {
     addUserTask,
@@ -639,11 +642,13 @@ const parseMoveTaskCommand = (message) => {
 };
 export default function AssistantScreen() {
     const startVoiceRecognition = async () => {
+        DeviceEventEmitter.emit("taskpilot-voice-transition", "begin");
         try {
             const result =
                 await ExpoSpeechRecognitionModule.requestPermissionsAsync();
 
             if (!result.granted) {
+                DeviceEventEmitter.emit("taskpilot-voice-transition", "end");
                 return;
             }
 
@@ -653,12 +658,14 @@ export default function AssistantScreen() {
                 continuous: false,
             });
         } catch (error) {
+            DeviceEventEmitter.emit("taskpilot-voice-transition", "end");
             console.error(
                 "Unable to start speech recognition:",
                 error
             );
 
             setIsListening(false);
+            Alert.alert("Microphone unavailable", "Speech recognition could not start. You can still type commands.");
         }
     };
 
@@ -976,6 +983,7 @@ export default function AssistantScreen() {
         }
 
         console.error("Speech recognition error:", event);
+        Alert.alert("Voice recognition", "Voice recognition encountered an error. Please try typing your command.");
     });
 
     useSpeechRecognitionEvent("result", (event) => {
@@ -1281,6 +1289,20 @@ export default function AssistantScreen() {
         const parsedTask =
             parseCreateTaskCommand(cleanMessage);
 
+        if (/^(add|create|make)\s+(?:(?:a\s+)?task\b)/i.test(cleanMessage) && !parsedTask) {
+            setMessages((currentMessages) => [
+                ...currentMessages,
+                {
+                    id: createMessageId(),
+                    role: "assistant",
+                    text: 'What should I name the task? Try "Add task Study math tomorrow at 3 PM".',
+                },
+            ]);
+            setIsTyping(false);
+            scrollToBottom();
+            return;
+        }
+
         if (parsedTask) {
             setPendingTask(parsedTask);
 
@@ -1328,10 +1350,20 @@ export default function AssistantScreen() {
         try {
             setIsTyping(true);
 
-            await addUserTask(
+            const createdResult = await addUserTask(
                 user.uid,
                 pendingTask
             );
+            const createdId = typeof createdResult === "string"
+                ? createdResult
+                : createdResult?.id;
+            if (createdId) {
+                try {
+                    await scheduleTaskReminder(user.uid, createdId, pendingTask);
+                } catch (reminderError) {
+                    console.warn("Assistant reminder scheduling failed:", reminderError);
+                }
+            }
 
             const createdTask = pendingTask;
 
@@ -1403,6 +1435,11 @@ export default function AssistantScreen() {
                 pendingCompletion.id,
                 true
             );
+            try {
+                await cancelTaskReminder(pendingCompletion.id, user.uid);
+            } catch (reminderError) {
+                console.warn("Assistant reminder cancellation failed:", reminderError);
+            }
 
             const completedTask = pendingCompletion;
 
@@ -1456,6 +1493,11 @@ export default function AssistantScreen() {
             await removeUserTask(
                 pendingDeletion.id
             );
+            try {
+                await cancelTaskReminder(pendingDeletion.id, user.uid);
+            } catch (reminderError) {
+                console.warn("Assistant reminder cancellation failed:", reminderError);
+            }
 
             setPendingDeletion(null);
 
@@ -1548,6 +1590,17 @@ export default function AssistantScreen() {
                 pendingEdit.task.id,
                 pendingEdit.updates
             );
+            if ("dueDate" in pendingEdit.updates || "dueTime" in pendingEdit.updates) {
+                try {
+                    await scheduleTaskReminder(
+                        user.uid,
+                        pendingEdit.task.id,
+                        { ...pendingEdit.task, ...pendingEdit.updates }
+                    );
+                } catch (reminderError) {
+                    console.warn("Assistant reminder rescheduling failed:", reminderError);
+                }
+            }
 
             const editedTask = pendingEdit.task;
             const editDescription = pendingEdit.description;

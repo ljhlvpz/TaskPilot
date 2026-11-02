@@ -17,6 +17,10 @@ import { onAuthStateChanged } from "firebase/auth";
 import { Theme } from "../../constants/theme";
 import { auth } from "../../firebase/firebaseConfig";
 import {
+  cancelTaskReminder,
+  scheduleTaskReminder,
+} from "../../services/notificationService";
+import {
   listenToUserTasks,
   changeTaskCompletion,
 } from "../../services/taskService";
@@ -99,10 +103,39 @@ export default function Tasks() {
       return;
     }
 
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) {
+      Alert.alert("Session expired", "Please sign in again.");
+      return;
+    }
+
+    const nextCompleted = !task.completed;
+
     try {
       setUpdatingTaskId(task.id);
 
-      await changeTaskCompletion(task.id, !task.completed);
+      // Update Firestore before changing the local reminder.
+      await changeTaskCompletion(task.id, nextCompleted);
+
+      try {
+        if (nextCompleted) {
+          // Finished tasks should no longer trigger reminders.
+          await cancelTaskReminder(task.id, currentUser.uid);
+        } else {
+          // Restore a reminder only if its scheduled time is still ahead.
+          await scheduleTaskReminder(currentUser.uid, task.id, {
+            ...task,
+            completed: false,
+          });
+        }
+      } catch (notificationError) {
+        console.error("Unable to update task reminder:", notificationError);
+        Alert.alert(
+          "Task updated",
+          "Your task was saved, but its reminder could not be updated."
+        );
+      }
     } catch (error) {
       console.error("Unable to update task:", error);
 

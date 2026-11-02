@@ -11,6 +11,7 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
@@ -36,6 +37,8 @@ export default function NotesScreen() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     const uid = auth.currentUser?.uid;
@@ -50,16 +53,13 @@ export default function NotesScreen() {
       uid,
       (updatedNotes) => {
         setNotes(updatedNotes);
+        setErrorMessage("");
         setLoading(false);
       },
       (error) => {
         console.error("Note listener error:", error);
         setLoading(false);
-
-        Alert.alert(
-          "Notes Error",
-          "Unable to load your notes. Please try again."
-        );
+        setErrorMessage("Unable to load your notes. Please check your connection.");
       }
     );
 
@@ -106,6 +106,7 @@ export default function NotesScreen() {
   // =========================================
 
   const handleSave = async () => {
+    if (saving) return;
     const cleanTitle = title.trim();
     const cleanContent = content.trim();
 
@@ -150,7 +151,10 @@ export default function NotesScreen() {
         });
       }
 
-      closeModal();
+      setModalVisible(false);
+      setEditingNote(null);
+      setTitle("");
+      setContent("");
     } catch (error) {
       console.error("Save note error:", error);
 
@@ -168,6 +172,7 @@ export default function NotesScreen() {
   // =========================================
 
   const handleDelete = (note) => {
+    if (deletingId) return;
     Alert.alert(
       "Delete Note",
       `Are you sure you want to delete "${note.title}"?`,
@@ -181,6 +186,7 @@ export default function NotesScreen() {
           style: "destructive",
           onPress: async () => {
             try {
+              setDeletingId(note.id);
               await removeUserNote(note.id);
             } catch (error) {
               console.error(
@@ -192,6 +198,8 @@ export default function NotesScreen() {
                 "Delete Failed",
                 "Unable to delete your note. Please try again."
               );
+            } finally {
+              setDeletingId(null);
             }
           },
         },
@@ -229,6 +237,7 @@ export default function NotesScreen() {
         <TouchableOpacity
           style={styles.deleteButton}
           onPress={() => handleDelete(item)}
+          disabled={deletingId !== null}
           hitSlop={{
             top: 10,
             bottom: 10,
@@ -236,11 +245,11 @@ export default function NotesScreen() {
             right: 10,
           }}
         >
-          <Ionicons
-            name="trash-outline"
-            size={20}
-            color={Theme.colors.error}
-          />
+          {deletingId === item.id ? (
+            <ActivityIndicator size="small" color={Theme.colors.error} />
+          ) : (
+            <Ionicons name="trash-outline" size={20} color={Theme.colors.error} />
+          )}
         </TouchableOpacity>
       </TouchableOpacity>
     );
@@ -291,6 +300,11 @@ export default function NotesScreen() {
           <Text style={styles.loadingText}>
             Loading notes...
           </Text>
+        </View>
+      ) : errorMessage ? (
+        <View style={styles.centerContent}>
+          <Ionicons name="alert-circle-outline" size={48} color={Theme.colors.error} />
+          <Text style={styles.emptyText}>{errorMessage}</Text>
         </View>
       ) : notes.length === 0 ? (
         <View style={styles.centerContent}>
@@ -401,7 +415,7 @@ export default function NotesScreen() {
                     closeModal();
                     handleDelete(editingNote);
                   }}
-                  disabled={saving}
+                  disabled={saving || deletingId !== null}
                 >
                   <Ionicons
                     name="trash-outline"

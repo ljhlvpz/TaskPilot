@@ -1,3 +1,5 @@
+import { auth } from "../../firebase/firebaseConfig";
+import { scheduleTaskReminder } from "../../services/notificationService";
 import { useEffect, useState } from "react";
 import {
   View,
@@ -81,6 +83,7 @@ export default function EditTask() {
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState(null);
   const [dueTime, setDueTime] = useState(null);
+  const [taskCompleted, setTaskCompleted] = useState(false);
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -241,10 +244,16 @@ useEffect(() => {
         return;
       }
 
+      if (!auth.currentUser || taskData.userId !== auth.currentUser.uid) {
+        setLoadError("You do not have access to edit this task.");
+        return;
+      }
+
       setTitle(taskData.title || "");
       setDescription(taskData.description || "");
       setCategory(taskData.category || "Personal");
       setPriority(taskData.priority || "medium");
+      setTaskCompleted(Boolean(taskData.completed));
       setDueDate(parseStoredDate(taskData.dueDate));
       setDueTime(parseStoredTime(taskData.dueTime));
     } catch (error) {
@@ -269,9 +278,11 @@ useEffect(() => {
   };
 }, [taskId]);
 
+
 const handleSaveTask = async () => {
   const cleanTitle = title.trim();
   const cleanDescription = description.trim();
+  const currentUser = auth.currentUser;
 
   if (!cleanTitle) {
     Alert.alert(
@@ -289,28 +300,76 @@ const handleSaveTask = async () => {
     return;
   }
 
+  if (!currentUser) {
+    Alert.alert(
+      "Session expired",
+      "Please sign in again before updating your task."
+    );
+    return;
+  }
+
+  const updatedTaskData = {
+    title: cleanTitle,
+    description: cleanDescription,
+    category,
+    priority,
+    dueDate: dueDate ? formatDate(dueDate) : null,
+    dueTime: dueTime ? formatTime(dueTime) : null,
+  };
+
   try {
     setSaving(true);
 
-    await editUserTask(taskId, {
-      title: cleanTitle,
-      description: cleanDescription,
-      category,
-      priority,
-      dueDate: dueDate ? formatDate(dueDate) : null,
-      dueTime: dueTime ? formatTime(dueTime) : null,
-    });
+    // Save the updated task to Firebase first.
+    await editUserTask(taskId, updatedTaskData);
 
-    Alert.alert(
-      "Task updated",
-      "Your changes have been saved.",
-      [
+    let reminderScheduled = false;
+    let reminderError = false;
+
+    try {
+      // This function cancels the old reminder first.
+      const notificationId = await scheduleTaskReminder(
+        currentUser.uid,
+        taskId,
         {
-          text: "Great",
-          onPress: () => router.back(),
-        },
-      ]
-    );
+          ...updatedTaskData,
+          completed: taskCompleted,
+        }
+      );
+
+      reminderScheduled = Boolean(notificationId);
+    } catch (error) {
+      console.error(
+        "Unable to update task reminder:",
+        error
+      );
+
+      reminderError = true;
+    }
+
+    let message = "Your changes have been saved.";
+
+    if (reminderScheduled) {
+      message =
+        "Your changes have been saved and your reminder has been updated.";
+    } else if (reminderError) {
+      message =
+        "Your task was updated, but its reminder could not be updated.";
+    } else if (
+      !taskCompleted &&
+      updatedTaskData.dueDate &&
+      updatedTaskData.dueTime
+    ) {
+      message =
+        "Your task was updated, but no future reminder was scheduled.";
+    }
+
+    Alert.alert("Task updated", message, [
+      {
+        text: "Great",
+        onPress: () => router.back(),
+      },
+    ]);
   } catch (error) {
     console.error("Edit task error:", error);
 
@@ -322,6 +381,7 @@ const handleSaveTask = async () => {
     setSaving(false);
   }
 };
+
 if (loading) {
   return (
     <SafeAreaView style={styles.safeArea}>

@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { Theme } from "../constants/theme";
 import { auth } from "../firebase/firebaseConfig";
 import { addUserTask } from "../services/taskService";
+import { scheduleTaskReminder } from "../services/notificationService";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import {
     useLocalSearchParams,
@@ -176,6 +177,7 @@ export default function CreateTask() {
         }
     };
 
+
     const handleSaveTask = async () => {
         const cleanTitle = title.trim();
         const currentUser = auth.currentUser;
@@ -196,21 +198,54 @@ export default function CreateTask() {
             return;
         }
 
+        const taskData = {
+            title: cleanTitle,
+            description,
+            category,
+            priority,
+            dueDate: dueDate ? formatDate(dueDate) : null,
+            dueTime: dueTime ? formatTime(dueTime) : null,
+        };
+
         try {
             setSaving(true);
 
-            await addUserTask(currentUser.uid, {
-                title: cleanTitle,
-                description,
-                category,
-                priority,
-                dueDate: dueDate ? formatDate(dueDate) : null,
-                dueTime: dueTime ? formatTime(dueTime) : null,
-            });
+            // First, save the task to Firebase.
+            const taskId = await addUserTask(
+                currentUser.uid,
+                taskData
+            );
+
+            // Then, attempt to schedule its local reminder.
+            // A notification error should not undo a saved task.
+            let reminderScheduled = false;
+
+            try {
+                const notificationId = await scheduleTaskReminder(
+                    currentUser.uid,
+                    taskId,
+                    taskData
+                );
+
+                reminderScheduled = Boolean(notificationId);
+            } catch (notificationError) {
+                console.error(
+                    "Task reminder scheduling error:",
+                    notificationError
+                );
+            }
+
+            const hasSchedule = Boolean(
+                taskData.dueDate && taskData.dueTime
+            );
 
             Alert.alert(
-                "Task added 🎉",
-                "Your new task is ready.",
+                "Task added! 🎉",
+                reminderScheduled
+                    ? "Your task was saved and its reminder is scheduled."
+                    : hasSchedule
+                        ? "Your task was saved, but no reminder was scheduled. Check your notification permissions and reminder time."
+                        : "Your new task is ready.",
                 [
                     {
                         text: "Great",

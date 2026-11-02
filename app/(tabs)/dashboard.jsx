@@ -12,9 +12,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
+  Modal,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as Notifications from "expo-notifications";
 
 import ScreenContainer from "../../components/ScreenContainer";
 import { Theme } from "../../constants/theme";
@@ -31,9 +35,15 @@ export default function Dashboard() {
 
   const [tasks, setTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  const [scheduledReminders, setScheduledReminders] = useState([]);
+  const [deliveredReminders, setDeliveredReminders] = useState([]);
 
   useFocusEffect(
     useCallback(() => {
+      setCurrentDate(new Date());
       let isActive = true;
 
       const loadUserProfile = async () => {
@@ -115,7 +125,7 @@ export default function Dashboard() {
   }, []);
 
   const greeting = useMemo(() => {
-    const hour = new Date().getHours();
+    const hour = currentDate.getHours();
 
     if (hour < 12) {
       return "Good Morning";
@@ -126,19 +136,19 @@ export default function Dashboard() {
     }
 
     return "Good Evening";
-  }, []);
+  }, [currentDate]);
 
   const firstName = fullName.trim().split(" ")[0] || "User";
 
   const today = useMemo(() => {
-    const date = new Date();
+    const date = currentDate;
 
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
 
     return `${year}-${month}-${day}`;
-  }, []);
+  }, [currentDate]);
 
   const todayTasks = useMemo(() => {
     return tasks.filter(
@@ -166,6 +176,21 @@ export default function Dashboard() {
         task.dueDate < today
     );
   }, [tasks, today]);
+  const sortTime = (value) => {
+    if (!value) return 9999;
+    const normalized = String(value).replace(/\u202f|\u00a0/g, " ").trim();
+    const match = normalized.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (!match) return 9999;
+    let hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (minutes > 59 || hours > 23) return 9999;
+    if (match[3]) {
+      if (hours < 1 || hours > 12) return 9999;
+      hours = (hours % 12) + (match[3].toUpperCase() === "PM" ? 12 : 0);
+    }
+    return hours * 60 + minutes;
+  };
+
   const upcomingTasks = useMemo(() => {
     return tasks
       .filter(
@@ -179,9 +204,7 @@ export default function Dashboard() {
           return a.dueDate.localeCompare(b.dueDate);
         }
 
-        return (a.dueTime || "").localeCompare(
-          b.dueTime || ""
-        );
+        return sortTime(a.dueTime) - sortTime(b.dueTime);
       })
       .slice(0, 3);
   }, [tasks, today]);
@@ -192,6 +215,39 @@ export default function Dashboard() {
         (completedToday / todayTasks.length) * 100
       )
       : 0;
+
+  const loadNotifications = async () => {
+    setNotificationLoading(true);
+    try {
+      const uid = auth.currentUser?.uid;
+      const [scheduled, delivered] = await Promise.all([
+        Notifications.getAllScheduledNotificationsAsync(),
+        Notifications.getPresentedNotificationsAsync(),
+      ]);
+      setScheduledReminders(scheduled.filter((n) =>
+        n.content.data?.type === "task-reminder" && n.content.data?.userId === uid
+      ));
+      setDeliveredReminders(delivered.filter((n) =>
+        n.request.content.data?.type === "task-reminder" &&
+        n.request.content.data?.userId === uid
+      ));
+    } catch (error) {
+      console.error("Dashboard notifications error:", error);
+      Alert.alert("Notifications", "Could not load reminders. Please try again.");
+    } finally {
+      setNotificationLoading(false);
+    }
+  };
+
+  const showNotificationInfo = () => {
+    setNotificationOpen(true);
+    loadNotifications();
+  };
+
+  const openReminderTask = (taskId) => {
+    setNotificationOpen(false);
+    if (taskId) router.push(`/task/${taskId}`);
+  };
 
   const navigateToTasks = () => {
     router.push("/(tabs)/tasks");
@@ -245,6 +301,7 @@ export default function Dashboard() {
 
           <TouchableOpacity
             style={styles.notificationButton}
+            onPress={showNotificationInfo}
             activeOpacity={0.75}
           >
             <Ionicons
@@ -256,6 +313,46 @@ export default function Dashboard() {
 
           </TouchableOpacity>
         </View>
+
+        <Modal visible={notificationOpen} transparent animationType="slide"
+          onRequestClose={() => setNotificationOpen(false)}>
+          <View style={notificationStyles.overlay}>
+            <View style={notificationStyles.sheet}>
+              <View style={notificationStyles.header}>
+                <Text style={notificationStyles.heading}>Task Reminders 🔔</Text>
+                <TouchableOpacity onPress={() => setNotificationOpen(false)} accessibilityLabel="Close notifications">
+                  <Ionicons name="close" size={25} color={Theme.colors.text} />
+                </TouchableOpacity>
+              </View>
+              <Text style={notificationStyles.help}>Delivered reminders and reminders scheduled on this device.</Text>
+              {notificationLoading ? <ActivityIndicator color={Theme.colors.primary} /> : (
+                <ScrollView style={notificationStyles.list}>
+                  <Text style={notificationStyles.section}>Delivered ({deliveredReminders.length})</Text>
+                  {deliveredReminders.length === 0 && <Text style={notificationStyles.empty}>No delivered task reminders yet.</Text>}
+                  {deliveredReminders.map((item) => (
+                    <TouchableOpacity key={item.request.identifier} style={notificationStyles.item}
+                      onPress={() => openReminderTask(item.request.content.data?.taskId)}>
+                      <Text style={notificationStyles.itemTitle}>{item.request.content.title || "Task reminder"}</Text>
+                      <Text style={notificationStyles.itemBody}>{item.request.content.body}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  <Text style={notificationStyles.section}>Scheduled ({scheduledReminders.length})</Text>
+                  {scheduledReminders.length === 0 && <Text style={notificationStyles.empty}>No upcoming reminders scheduled on this device.</Text>}
+                  {scheduledReminders.map((item) => (
+                    <TouchableOpacity key={item.identifier} style={notificationStyles.item}
+                      onPress={() => openReminderTask(item.content.data?.taskId)}>
+                      <Text style={notificationStyles.itemTitle}>{item.content.title || "Upcoming reminder"}</Text>
+                      <Text style={notificationStyles.itemBody}>{item.content.body}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+              <TouchableOpacity style={notificationStyles.refresh} onPress={loadNotifications}>
+                <Text style={notificationStyles.refreshText}>Refresh reminders</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         <View style={styles.progressCard}>
           <View style={styles.progressHeader}>
@@ -1097,4 +1194,19 @@ const styles = StyleSheet.create({
     fontSize: Theme.fonts.body,
     color: Theme.colors.secondaryText,
   },
+});
+const notificationStyles = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.45)" },
+  sheet: { backgroundColor: Theme.colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: "80%", minHeight: 340 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  heading: { fontSize: 20, fontWeight: "800", color: Theme.colors.text },
+  help: { color: Theme.colors.secondaryText, marginTop: 8, marginBottom: 12 },
+  list: { flexGrow: 0 },
+  section: { color: Theme.colors.primary, fontWeight: "800", marginTop: 14, marginBottom: 8 },
+  empty: { color: Theme.colors.secondaryText, paddingVertical: 12 },
+  item: { padding: 12, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 12, marginBottom: 8 },
+  itemTitle: { fontWeight: "700", color: Theme.colors.text },
+  itemBody: { marginTop: 4, color: Theme.colors.secondaryText },
+  refresh: { marginTop: 12, backgroundColor: Theme.colors.primary, borderRadius: 12, padding: 13, alignItems: "center" },
+  refreshText: { color: "#FFFFFF", fontWeight: "700" },
 });
