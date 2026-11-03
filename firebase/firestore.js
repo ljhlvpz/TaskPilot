@@ -79,18 +79,34 @@ export const createTask = async (uid, taskData) => {
 
   const tasksRef = collection(db, "tasks");
 
-  const newTask = {
-    userId: uid,
-    title: taskData.title.trim(),
-    description: taskData.description?.trim() || "",
-    category: taskData.category || "Personal",
-    priority: taskData.priority || "medium",
-    dueDate: taskData.dueDate || null,
-    dueTime: taskData.dueTime || null,
-    completed: false,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  };
+  
+const newTask = {
+  userId: uid,
+  title: taskData.title.trim(),
+  description: taskData.description?.trim() || "",
+  category: taskData.category || "Personal",
+  priority: taskData.priority || "medium",
+
+  // Save the machine-learning inputs to Firebase
+  ...(Number.isInteger(Number(taskData.importance)) &&
+  Number(taskData.importance) >= 1 &&
+  Number(taskData.importance) <= 5
+    ? { importance: Number(taskData.importance) }
+    : {}),
+
+  ...(Number.isFinite(Number(taskData.estimatedMinutes)) &&
+  Number(taskData.estimatedMinutes) > 0 &&
+  taskData.estimatedMinutes != null
+    ? { estimatedMinutes: Number(taskData.estimatedMinutes) }
+    : {}),
+
+  dueDate: taskData.dueDate || null,
+  dueTime: taskData.dueTime || null,
+  completed: false,
+  createdAt: serverTimestamp(),
+  updatedAt: serverTimestamp(),
+};
+
 
   const taskDocument = await addDoc(tasksRef, newTask);
 

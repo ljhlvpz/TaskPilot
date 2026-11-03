@@ -22,6 +22,7 @@ import {
 import { Theme } from "../../constants/theme";
 import { auth } from "../../firebase/firebaseConfig";
 import { cancelTaskReminder, scheduleTaskReminder } from "../../services/notificationService";
+import { clearDeletedTaskNotifications } from "../../services/notificationInbox";
 import {
   changeTaskCompletion,
   fetchTaskById,
@@ -192,36 +193,66 @@ export default function TaskDetails() {
     }
   };
 
+
   const confirmDeleteTask = async () => {
     if (!task?.id || deleting || updating) {
       return;
     }
 
     const currentUser = auth.currentUser;
-    if (!currentUser || (task.userId && task.userId !== currentUser.uid)) {
-      Alert.alert("Session unavailable", "Please sign in again to delete this task.");
+
+    if (
+      !currentUser ||
+      (task.userId && task.userId !== currentUser.uid)
+    ) {
+      Alert.alert(
+        "Session unavailable",
+        "Please sign in again to delete this task."
+      );
       return;
     }
 
     try {
       setDeleting(true);
 
-      // Delete from Firestore first. A failed delete leaves the reminder intact.
+      // Delete from Firestore first.
+      // If deletion fails, keep the existing reminders.
       await removeUserTask(task.id);
 
+      // Cancel future scheduled reminders.
       let reminderCancelled = true;
+
       try {
         await cancelTaskReminder(task.id, currentUser.uid);
       } catch (notificationError) {
         reminderCancelled = false;
-        console.error("Cancel deleted task reminder error:", notificationError);
+
+        console.error(
+          "Cancel deleted task reminder error:",
+          notificationError
+        );
+      }
+
+      // Remove received notifications for this task
+      // from TaskPilot's local notification inbox.
+      // A cleanup failure must not undo the deletion.
+      try {
+        await clearDeletedTaskNotifications(
+  currentUser.uid,
+  task.id
+);
+      } catch (inboxError) {
+        console.warn(
+          "Delete task inbox cleanup error:",
+          inboxError
+        );
       }
 
       Alert.alert(
         "Task deleted",
         reminderCancelled
-          ? "The task and its scheduled reminder have been removed."
-          : "The task was deleted, but its scheduled reminder could not be cancelled.",
+          ? "The task and its scheduled reminders have been removed."
+          : "The task was deleted, but its scheduled reminders could not be cancelled.",
         [
           {
             text: "Done",
@@ -231,6 +262,7 @@ export default function TaskDetails() {
       );
     } catch (error) {
       console.error("Delete task error:", error);
+
       Alert.alert(
         "Unable to delete task",
         "Something went wrong while deleting the task. Please try again."
@@ -239,6 +271,7 @@ export default function TaskDetails() {
       setDeleting(false);
     }
   };
+
 
   const handleDeleteTask = () => {
     if (!task?.id || deleting) {
@@ -330,12 +363,12 @@ export default function TaskDetails() {
           </View>
 
           <Text style={styles.errorTitle}>
-            Task unavailable
+            This task is no longer available.
           </Text>
 
           <Text style={styles.errorText}>
             {errorMessage ||
-              "We could not find the task you were looking for."}
+              "It may have been deleted or you may not have access to it."}
           </Text>
 
           <TouchableOpacity
@@ -417,7 +450,7 @@ export default function TaskDetails() {
             style={[
               styles.completionButton,
               task.completed &&
-                styles.completionButtonActive,
+              styles.completionButtonActive,
             ]}
             onPress={handleToggleCompletion}
             disabled={updating || deleting}
@@ -454,7 +487,7 @@ export default function TaskDetails() {
               style={[
                 styles.taskTitle,
                 task.completed &&
-                  styles.completedTaskTitle,
+                styles.completedTaskTitle,
               ]}
             >
               {task.title}
@@ -540,7 +573,7 @@ export default function TaskDetails() {
             style={[
               styles.descriptionText,
               !task.description &&
-                styles.descriptionPlaceholder,
+              styles.descriptionPlaceholder,
             ]}
           >
             {task.description?.trim() ||
@@ -572,7 +605,7 @@ export default function TaskDetails() {
           style={[
             styles.deleteButton,
             (deleting || updating) &&
-              styles.actionButtonDisabled,
+            styles.actionButtonDisabled,
           ]}
           onPress={handleDeleteTask}
           disabled={deleting || updating}

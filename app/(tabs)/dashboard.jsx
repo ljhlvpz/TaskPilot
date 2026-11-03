@@ -17,6 +17,7 @@ import {
   Alert,
   Modal,
   ScrollView,
+  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -28,9 +29,85 @@ import ScreenContainer from "../../components/ScreenContainer";
 import { Theme } from "../../constants/theme";
 import { auth } from "../../firebase/firebaseConfig";
 import { getUserProfile } from "../../firebase/firestore";
-import { listenToUserTasks } from "../../services/taskService";
+import { fetchTaskById, listenToUserTasks } from "../../services/taskService";
 
 
+function DashboardSkeleton({ colors, count = 3 }) {
+  const opacity = React.useRef(new Animated.Value(0.45)).current;
+
+  React.useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.9,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.45,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    animation.start();
+
+    return () => animation.stop();
+  }, [opacity]);
+
+  const placeholder = {
+    backgroundColor: colors.border,
+    borderRadius: 8,
+  };
+
+  return (
+    <View style={{ gap: 12 }}>
+      {Array.from({ length: count }, (_, index) => (
+        <Animated.View
+          key={index}
+          style={{
+            opacity,
+            flexDirection: "row",
+            alignItems: "center",
+            padding: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 16,
+            backgroundColor: colors.surface,
+          }}
+        >
+          <View
+            style={{
+              ...placeholder,
+              width: 38,
+              height: 38,
+              borderRadius: 12,
+            }}
+          />
+
+          <View style={{ flex: 1, marginLeft: 14, gap: 9 }}>
+            <View
+              style={{
+                ...placeholder,
+                height: 15,
+                width: "70%",
+              }}
+            />
+
+            <View
+              style={{
+                ...placeholder,
+                height: 11,
+                width: "45%",
+              }}
+            />
+          </View>
+        </Animated.View>
+      ))}
+    </View>
+  );
+}
 export default function Dashboard() {
   const { colors } = useAppTheme();
   const styles = React.useMemo(() => make_styles(colors), [colors]);
@@ -294,14 +371,48 @@ export default function Dashboard() {
 
   const openReminderTask = async (item) => {
     const uid = auth.currentUser?.uid;
-    if (uid) {
+    if (!uid) {
+      Alert.alert("Sign in required", "Please sign in to view this task.");
+      return;
+    }
+
+    try {
       await markInboxRead(uid, item.id);
       const items = await readNotificationInbox(uid);
       setInboxReminders(items);
       setUnreadCount(items.filter((entry) => !entry.read).length);
+    } catch (error) {
+      console.warn("Could not mark notification as read:", error);
     }
-    setNotificationOpen(false);
-    if (item.taskId) router.push(`/task/${item.taskId}`);
+
+    // Daily summaries do not point to an individual task.
+    if (!item.taskId) {
+      setNotificationOpen(false);
+      return;
+    }
+
+    try {
+      // Check before navigating, so old reminders cannot open deleted tasks.
+      const task = await fetchTaskById(String(item.taskId));
+      if (!task || task.userId !== uid) {
+        Alert.alert(
+          "Task unavailable",
+          "This task may have been deleted or is no longer accessible."
+        );
+        return;
+      }
+
+      setNotificationOpen(false);
+      router.push(`/task/${encodeURIComponent(String(item.taskId))}`);
+    } catch (error) {
+      // Firestore can report permission-denied for a missing document,
+      // depending on the app's security rules. Do not assume deletion.
+      console.warn("Could not open notification task:", error);
+      Alert.alert(
+        "Task unavailable",
+        "This task may have been deleted, or you may not have access to it."
+      );
+    }
   };
 
   const navigateToTasks = () => {
@@ -347,7 +458,7 @@ export default function Dashboard() {
             ) : (
               <>
                 <Text style={styles.greeting}>
-                  {greeting}, {firstName}! 
+                  {greeting}, {firstName}!
                 </Text>
 
                 <Text style={styles.headerSubtitle}>
@@ -530,16 +641,7 @@ export default function Dashboard() {
         </View>
 
         {loadingTasks ? (
-          <View style={styles.loadingTasksContainer}>
-            <ActivityIndicator
-              size="small"
-              color={colors.primary}
-            />
-
-            <Text style={styles.loadingTasksText}>
-              Loading today's tasks...
-            </Text>
-          </View>
+          <DashboardSkeleton colors={colors} count={3} />
         ) : todayTasks.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons
@@ -591,16 +693,7 @@ export default function Dashboard() {
         </View>
 
         {loadingTasks ? (
-          <View style={styles.loadingTasksContainer}>
-            <ActivityIndicator
-              size="small"
-              color={colors.primary}
-            />
-
-            <Text style={styles.loadingTasksText}>
-              Loading upcoming tasks...
-            </Text>
-          </View>
+          <DashboardSkeleton colors={colors} count={2} />
         ) : upcomingTasks.length === 0 ? (
           <View style={styles.upcomingEmpty}>
             <Ionicons

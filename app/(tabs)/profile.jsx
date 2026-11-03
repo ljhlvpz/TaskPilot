@@ -6,10 +6,11 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 
@@ -19,6 +20,101 @@ import { useAuth } from "../../hooks/useAuth";
 import { getUserProfile } from "../../firebase/firestore";
 import { logoutUser } from "../../services/authService";
 
+
+function ProfileSkeleton({ colors }) {
+  const opacity = React.useRef(new Animated.Value(0.45)).current;
+
+  React.useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.9,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.45,
+          duration: 850,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    animation.start();
+
+    return () => animation.stop();
+  }, [opacity]);
+
+  const block = {
+    backgroundColor: colors.border,
+    borderRadius: 8,
+  };
+
+  return (
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={["top"]}
+    >
+      <View style={{ padding: 18, gap: 20 }}>
+        <Animated.View style={{ opacity, gap: 10 }}>
+          <View style={{ ...block, width: 110, height: 25 }} />
+          <View style={{ ...block, width: 220, height: 13 }} />
+        </Animated.View>
+
+        <Animated.View
+          style={{
+            opacity,
+            flexDirection: "row",
+            alignItems: "center",
+            padding: 18,
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 16,
+            backgroundColor: colors.surface,
+          }}
+        >
+          <View
+            style={{
+              ...block,
+              width: 64,
+              height: 64,
+              borderRadius: 32,
+            }}
+          />
+
+          <View style={{ flex: 1, marginLeft: 14, gap: 10 }}>
+            <View style={{ ...block, width: "70%", height: 17 }} />
+            <View style={{ ...block, width: "90%", height: 12 }} />
+          </View>
+        </Animated.View>
+
+        {[1, 2, 3].map((item) => (
+          <Animated.View
+            key={item}
+            style={{
+              opacity,
+              height: 68,
+              padding: 15,
+              flexDirection: "row",
+              alignItems: "center",
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 14,
+              backgroundColor: colors.surface,
+            }}
+          >
+            <View style={{ ...block, width: 40, height: 40 }} />
+
+            <View style={{ flex: 1, marginLeft: 12, gap: 8 }}>
+              <View style={{ ...block, width: "55%", height: 13 }} />
+              <View style={{ ...block, width: "80%", height: 10 }} />
+            </View>
+          </Animated.View>
+        ))}
+      </View>
+    </SafeAreaView>
+  );
+}
 export default function Profile() {
   const router = useRouter();
   const { colors } = useAppTheme();
@@ -116,23 +212,7 @@ export default function Profile() {
   };
 
   if (authLoading || loadingProfile) {
-    return (
-      <SafeAreaView
-        style={styles.safeArea}
-        edges={["top"]}
-      >
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator
-            size="large"
-            color={colors.primary}
-          />
-
-          <Text style={styles.loadingText}>
-            Loading profile...
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <ProfileSkeleton colors={colors} />;
   }
 
   const displayName =
@@ -198,31 +278,35 @@ export default function Profile() {
           <TouchableOpacity
             style={styles.menuItem}
             activeOpacity={0.7}
+            onPress={() => router.push("/(tabs)/notes")}
+            accessibilityRole="button"
+            accessibilityLabel="Open My Notes"
+          >
+            <View style={styles.menuIcon}>
+              <Ionicons name="document-text-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.menuContent}>
+              <Text style={styles.menuTitle}>My Notes</Text>
+              <Text style={styles.menuSubtitle}>View and manage your saved notes</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.secondaryText} />
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            activeOpacity={0.7}
             onPress={() => router.push("/edit-profile")}
           >
             <View style={styles.menuIcon}>
-              <Ionicons
-                name="person-outline"
-                size={20}
-                color={colors.primary}
-              />
+              <Ionicons name="person-outline" size={20} color={colors.primary} />
             </View>
-
             <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>
-                Edit Profile
-              </Text>
-
-              <Text style={styles.menuSubtitle}>
-                Update your personal information
-              </Text>
+              <Text style={styles.menuTitle}>Edit Profile</Text>
+              <Text style={styles.menuSubtitle}>Update your personal information</Text>
             </View>
-
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color={colors.secondaryText}
-            />
+            <Ionicons name="chevron-forward" size={20} color={colors.secondaryText} />
           </TouchableOpacity>
 
           <View style={styles.divider} />
@@ -233,28 +317,13 @@ export default function Profile() {
             onPress={() => router.push("/preferences")}
           >
             <View style={styles.menuIcon}>
-              <Ionicons
-                name="settings-outline"
-                size={20}
-                color={colors.primary}
-              />
+              <Ionicons name="settings-outline" size={20} color={colors.primary} />
             </View>
-
             <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>
-                Preferences
-              </Text>
-
-              <Text style={styles.menuSubtitle}>
-                Customize your TaskPilot experience
-              </Text>
+              <Text style={styles.menuTitle}>Preferences</Text>
+              <Text style={styles.menuSubtitle}>Customize your TaskPilot experience</Text>
             </View>
-
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color={colors.secondaryText}
-            />
+            <Ionicons name="chevron-forward" size={20} color={colors.secondaryText} />
           </TouchableOpacity>
         </View>
 

@@ -21,7 +21,6 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
 import { Theme } from "../../constants/theme";
 import { scheduleTaskReminder, cancelTaskReminder } from "../../services/notificationService";
 import { useAuth } from "../../hooks/useAuth";
@@ -32,6 +31,8 @@ import {
     listenToUserTasks,
     removeUserTask,
 } from "../../services/taskService";
+
+import { predictTaskPriority } from "../../services/priorityService";
 
 import {
     ExpoSpeechRecognitionModule,
@@ -108,7 +109,6 @@ const getTodayDate = () => {
 
     return `${year}-${month}-${day}`;
 };
-
 const formatTaskLine = (task) => {
     const priority =
         task.priority?.toUpperCase() || "MEDIUM";
@@ -153,6 +153,42 @@ const sortTasksByPriority = (tasks) => {
         );
     });
 };
+// Rank tasks using the trained offline model when sufficient inputs exist.
+// Older tasks may lack importance or duration; preserve their saved priority instead.
+const rankTasksWithOfflineML = (items) => {
+    const priorityRank = { high: 3, medium: 2, low: 1 };
+    return items.map((task) => {
+        let prediction = null;
+        try {
+            const hasInputs = task.dueDate &&
+                task.importance !== null && task.importance !== undefined &&
+                task.estimatedMinutes !== null && task.estimatedMinutes !== undefined;
+            if (hasInputs) prediction = predictTaskPriority(task);
+        } catch (error) {
+            console.warn("Offline priority prediction failed:", error);
+        }
+        const savedPriority = String(task.priority || "medium").toLowerCase();
+        const recommendedPriority = prediction?.priority?.toLowerCase() || savedPriority;
+        return { task, prediction, recommendedPriority };
+    }).sort((a, b) => {
+        const difference = (priorityRank[b.recommendedPriority] || 0) -
+            (priorityRank[a.recommendedPriority] || 0);
+        if (difference) return difference;
+        const aDate = a.task.dueDate || "9999-12-31";
+        const bDate = b.task.dueDate || "9999-12-31";
+        return aDate.localeCompare(bDate);
+    });
+};
+
+const formatOfflineMLTask = (item, index) => {
+    const { task, prediction, recommendedPriority } = item;
+    const date = task.dueDate ? ` — due ${task.dueDate}${task.dueTime ? ` at ${task.dueTime}` : ""}` : "";
+    const source = prediction
+        ? `AI suggests: ${recommendedPriority.toUpperCase()}`
+        : `Priority: ${recommendedPriority.toUpperCase()}`;
+    return `${index + 1}. ${task.title}${date}\n   ${source}`;
+};
+
 const getNextWeekdayDate = (weekdayName, forceNextWeek = false) => {
     const weekdays = {
         sunday: 0,
@@ -644,23 +680,47 @@ const parseMoveTaskCommand = (message) => {
     };
 };
 export default function AssistantScreen() {
-    // Reserve space for the floating navbar only while the keyboard is closed.
+    
+    // The tab bar floats over this screen. Track Android's *actual* resize
+    // so we only compensate for the portion of the keyboard that overlaps it.
     const [keyboardVisible, setKeyboardVisible] = useState(false);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const [screenHeight, setScreenHeight] = useState(0);
+    const expandedHeightRef = useRef(0);
+    const keyboardVisibleRef = useRef(false);
 
     useEffect(() => {
-        const showSubscription = Keyboard.addListener(
-            "keyboardDidShow",
-            () => setKeyboardVisible(true)
-        );
-        const hideSubscription = Keyboard.addListener(
-            "keyboardDidHide",
-            () => setKeyboardVisible(false)
-        );
+        const showSubscription = Keyboard.addListener("keyboardDidShow", (event) => {
+            keyboardVisibleRef.current = true;
+            setKeyboardVisible(true);
+            setKeyboardHeight(event.endCoordinates?.height || 0);
+        });
+        const hideSubscription = Keyboard.addListener("keyboardDidHide", () => {
+            keyboardVisibleRef.current = false;
+            setKeyboardVisible(false);
+            setKeyboardHeight(0);
+        });
         return () => {
             showSubscription.remove();
             hideSubscription.remove();
         };
     }, []);
+
+    const handleScreenLayout = (event) => {
+        const height = event.nativeEvent.layout.height;
+        setScreenHeight((previous) => previous === height ? previous : height);
+        if (!keyboardVisibleRef.current) {
+            expandedHeightRef.current = Math.max(expandedHeightRef.current, height);
+        }
+    };
+
+    // In resize mode the window may already shrink by the keyboard height.
+    // Only add compensation for the remaining overlap; never double-offset it.
+    const nativeResizeAmount = Math.max(0, expandedHeightRef.current - screenHeight);
+    const keyboardOverlap = Platform.OS === "android" && keyboardVisible
+        ? Math.max(0, keyboardHeight - nativeResizeAmount)
+        : 0;
+    const bottomNavSpacing = 82;
 
     const { colors } = useAppTheme();
     const styles = React.useMemo(() => make_styles(colors), [colors]);
@@ -909,7 +969,7 @@ export default function AssistantScreen() {
             );
         }
 
-        // PRIORITY / WHAT SHOULD I DO FIRST
+        // PRIORITY / WHAT SHOULD I DO FIRST — offline trained ML model.
         if (
             normalizedMessage.includes("prioritize") ||
             normalizedMessage.includes("priority") ||
@@ -920,31 +980,9 @@ export default function AssistantScreen() {
             if (pendingTasks.length === 0) {
                 return "You have no pending tasks right now. Nice work! 🎉";
             }
-
-            const recommendedTasks =
-                highPriorityTasks.length > 0
-                    ? sortTasksByPriority(
-                        highPriorityTasks
-                    )
-                    : sortedPending;
-
-            const taskList = recommendedTasks
-                .slice(0, 5)
-                .map(formatTaskLine)
-                .join("\n");
-
-            if (highPriorityTasks.length > 0) {
-                return (
-                    `I recommend starting with your high-priority tasks:\n\n` +
-                    taskList
-                );
-            }
-
-            return (
-                `You currently have no high-priority tasks. ` +
-                `Here are some pending tasks you can work on:\n\n` +
-                taskList
-            );
+            const ranked = rankTasksWithOfflineML(pendingTasks);
+            const taskList = ranked.slice(0, 5).map(formatOfflineMLTask).join("\n\n");
+            return `Here's what to focus on first:\n\n${taskList}\n\n✨ Priorities suggested based on your tasks.`;
         }
 
         // PLAN MY DAY
@@ -958,13 +996,10 @@ export default function AssistantScreen() {
                     return "You have no pending tasks. Enjoy the extra breathing room today! 🎉";
                 }
 
-                const suggestions = sortedPending
+                const suggestions = rankTasksWithOfflineML(pendingTasks)
                     .slice(0, 3)
-                    .map(
-                        (task, index) =>
-                            `${index + 1}. ${task.title} (${task.priority || "medium"})`
-                    )
-                    .join("\n");
+                    .map(formatOfflineMLTask)
+                    .join("\n\n");
 
                 return (
                     `You don't have tasks due today, so you could work ahead:\n\n` +
@@ -972,17 +1007,9 @@ export default function AssistantScreen() {
                 );
             }
 
-            const plan = sortTasksByPriority(
-                todayTasks
-            )
-                .map(
-                    (task, index) =>
-                        `${index + 1}. ${task.title}${task.dueTime
-                            ? ` — ${task.dueTime}`
-                            : ""
-                        } (${task.priority || "medium"})`
-                )
-                .join("\n");
+            const plan = rankTasksWithOfflineML(todayTasks)
+                .map(formatOfflineMLTask)
+                .join("\n\n");
 
             return (
                 `Here's a simple plan for today:\n\n` +
@@ -1401,10 +1428,13 @@ export default function AssistantScreen() {
             return;
         }
 
+        // Offline-only: no cloud API account, key, or network request required.
+        const reply = generateTemporaryResponse(cleanMessage);
+
         const assistantMessage = {
             id: createMessageId(),
             role: "assistant",
-            text: generateTemporaryResponse(cleanMessage),
+            text: reply,
         };
 
         setMessages((currentMessages) => [
@@ -1828,13 +1858,17 @@ export default function AssistantScreen() {
         <SafeAreaView
             style={styles.safeArea}
             edges={["top"]}
+            onLayout={handleScreenLayout}
         >
             <KeyboardAvoidingView
-                style={styles.container}
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-                keyboardVerticalOffset={
-                    Platform.OS === "ios" ? 82 : 0
-                }
+                style={[
+                    styles.container,
+                    Platform.OS === "android" && keyboardOverlap > 0
+                        ? { paddingBottom: keyboardOverlap }
+                        : null,
+                ]}
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 82 : 0}
             >
                 <View style={styles.header}>
                     <View style={styles.headerIcon}>
@@ -2180,7 +2214,7 @@ export default function AssistantScreen() {
                     style={[
                         styles.inputSection,
                         {
-                            marginBottom: keyboardVisible ? 0 : 30,
+                            marginBottom: keyboardVisible ? 0 : bottomNavSpacing,
                         },
                     ]}
                 >

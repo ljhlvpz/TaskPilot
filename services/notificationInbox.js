@@ -56,3 +56,56 @@ export async function markInboxRead(uid, id = null) {
   });
   return queue;
 }
+
+
+export function removeTaskFromNotificationInbox(uid, taskId) {
+  if (!uid || !taskId) return Promise.resolve();
+
+  queue = queue.catch(() => {}).then(async () => {
+    const items = await readNotificationInbox(uid);
+
+    const next = items.filter(
+      (item) => String(item.taskId) !== String(taskId)
+    );
+
+    await AsyncStorage.setItem(
+      keyFor(uid),
+      JSON.stringify(next)
+    );
+  });
+
+  return queue;
+}
+
+
+
+export async function clearDeletedTaskNotifications(uid, taskId) {
+  if (!uid || !taskId) return;
+
+  // 1. Remove notifications from TaskPilot's saved inbox.
+  await removeTaskFromNotificationInbox(uid, taskId);
+
+  // 2. Remove matching notifications from Android's notification bar.
+  try {
+    const presented =
+      await Notifications.getPresentedNotificationsAsync();
+
+    for (const notification of presented) {
+      const data = notification.request.content.data || {};
+
+      if (
+        String(data.taskId) === String(taskId) &&
+        data.userId === uid
+      ) {
+        await Notifications.dismissNotificationAsync(
+          notification.request.identifier
+        );
+      }
+    }
+  } catch (error) {
+    console.warn(
+      "Could not dismiss Android notifications:",
+      error
+    );
+  }
+}

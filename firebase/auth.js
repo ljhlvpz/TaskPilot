@@ -1,3 +1,4 @@
+
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -14,13 +15,9 @@ export const loginWithGoogleCredential = async (idToken) => {
     throw new Error("Google ID token is required.");
   }
 
-  const credential =
-    GoogleAuthProvider.credential(idToken);
+  const credential = GoogleAuthProvider.credential(idToken);
 
-  return signInWithCredential(
-    auth,
-    credential
-  );
+  return signInWithCredential(auth, credential);
 };
 
 export const register = (email, password) => {

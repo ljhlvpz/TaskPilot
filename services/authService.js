@@ -1,3 +1,4 @@
+
 import {
   register,
   login,
@@ -11,17 +12,17 @@ export const googleLoginUser = async (idToken) => {
 };
 
 export const registerUser = async (email, password) => {
-  return await register(email, password);
+  return register(email, password);
 };
 
 export const loginUser = async (email, password) => {
-  return await login(email, password);
+  return login(email, password);
 };
 
 export const logoutUser = async () => {
-  return await logout();
+  return logout();
 };
 
 export const forgotPassword = async (email) => {
-  return await resetPassword(email);
+  return resetPassword(email);
 };

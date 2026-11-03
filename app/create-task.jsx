@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { useAppTheme } from "../contexts/ThemeContext";
 import {
     View,
@@ -20,6 +20,7 @@ import { Theme } from "../constants/theme";
 import { auth } from "../firebase/firebaseConfig";
 import { addUserTask } from "../services/taskService";
 import { scheduleTaskReminder } from "../services/notificationService";
+import { predictTaskPriority } from "../services/priorityService";
 import TaskSaveAnimation from "../components/TaskSaveAnimation";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import {
@@ -82,6 +83,8 @@ export default function CreateTask() {
     const [description, setDescription] = useState("");
     const [category, setCategory] = useState("Personal");
     const [priority, setPriority] = useState("medium");
+    const [importance, setImportance] = useState(5);
+    const [estimatedMinutes, setEstimatedMinutes] = useState(60);
     const [dueDate, setDueDate] = useState(null);
     const [dueTime, setDueTime] = useState(null);
 
@@ -190,6 +193,31 @@ export default function CreateTask() {
     };
 
 
+    // Predictions run entirely on-device using the exported ML model.
+    // A date is required by this model; never invent a deadline.
+    const aiRecommendation = useMemo(() => {
+        if (!dueDate) return null;
+        try {
+            return predictTaskPriority({
+                dueDate: formatDate(dueDate),
+                importance,
+                estimatedMinutes,
+                completed: false,
+            });
+        } catch (error) {
+            console.warn("AI priority prediction failed:", error);
+            return null;
+        }
+    }, [dueDate, importance, estimatedMinutes]);
+
+    const applyAiPriority = () => {
+        if (!aiRecommendation) return;
+        const suggested = aiRecommendation.priority.toLowerCase();
+        if (["low", "medium", "high"].includes(suggested)) {
+            setPriority(suggested);
+        }
+    };
+
     const handleSaveTask = async () => {
         const cleanTitle = title.trim();
         const currentUser = auth.currentUser;
@@ -215,6 +243,8 @@ export default function CreateTask() {
             description,
             category,
             priority,
+            importance,
+            estimatedMinutes,
             dueDate: dueDate ? formatDate(dueDate) : null,
             dueTime: dueTime ? formatTime(dueTime) : null,
         };
@@ -646,6 +676,87 @@ export default function CreateTask() {
                         The date and time are optional. You can add them later.
                     </Text>
 
+                    <View style={styles.aiCard}>
+                        <View style={styles.aiHeadingRow}>
+                            <Ionicons name="sparkles" size={20} color={colors.primary} />
+                            <Text style={styles.aiTitle}>AI Priority Recommendation</Text>
+                        </View>
+                        <Text style={styles.aiDescription}>
+                            Enter task details to get an offline machine-learning suggestion. You decide whether to use it.
+                        </Text>
+
+                        <Text style={styles.aiFieldLabel}>Importance: {importance}/5</Text>
+                        <View style={styles.importanceRow}>
+                            {[1, 2, 3, 4, 5].map((level) => (
+                                <TouchableOpacity
+                                    key={level}
+                                    style={[
+                                        styles.importanceButton,
+                                        importance === level && styles.importanceButtonSelected,
+                                    ]}
+                                    onPress={() => setImportance(level)}
+                                    disabled={saving || animationPhase !== "idle"}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Importance ${level} out of 5`}
+                                    accessibilityState={{ selected: importance === level }}
+                                >
+                                    <Text style={[
+                                        styles.importanceButtonText,
+                                        importance === level && styles.importanceButtonTextSelected,
+                                    ]}>{level}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        <Text style={styles.aiFieldLabel}>Estimated duration</Text>
+                        <View style={styles.durationRow}>
+                            {[30, 60, 120, 240].map((minutes) => (
+                                <TouchableOpacity
+                                    key={minutes}
+                                    style={[
+                                        styles.durationButton,
+                                        estimatedMinutes === minutes && styles.durationButtonSelected,
+                                    ]}
+                                    onPress={() => setEstimatedMinutes(minutes)}
+                                    disabled={saving || animationPhase !== "idle"}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`${minutes} minutes estimated duration`}
+                                    accessibilityState={{ selected: estimatedMinutes === minutes }}
+                                >
+                                    <Text style={[
+                                        styles.durationButtonText,
+                                        estimatedMinutes === minutes && styles.durationButtonTextSelected,
+                                    ]}>{minutes === 60 ? "1 hr" : minutes === 120 ? "2 hrs" : minutes === 240 ? "4 hrs" : "30 min"}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        {aiRecommendation ? (
+                            <View style={styles.aiResult}>
+                                <Text style={styles.aiResultTitle}>
+                                    AI suggests: {aiRecommendation.priority} priority
+                                </Text>
+                                <Text style={styles.aiResultDetail}>
+                                    {Math.round(aiRecommendation.confidence * 100)}% model probability · Advisory only
+                                </Text>
+                                <TouchableOpacity
+                                    style={styles.aiApplyButton}
+                                    onPress={applyAiPriority}
+                                    disabled={saving || animationPhase !== "idle" || priority === aiRecommendation.priority.toLowerCase()}
+                                    accessibilityRole="button"
+                                >
+                                    <Text style={styles.aiApplyButtonText}>
+                                        {priority === aiRecommendation.priority.toLowerCase() ? "Suggestion selected" : "Use AI Suggestion"}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <Text style={styles.aiHint}>
+                                Choose a due date above to see an AI recommendation.
+                            </Text>
+                        )}
+                    </View>
+
                     <TouchableOpacity
                         style={[
                             styles.saveButton,
@@ -694,6 +805,34 @@ export default function CreateTask() {
 
 
 const make_styles = (colors) => StyleSheet.create({
+    aiCard: {
+        marginTop: 24,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 18,
+        backgroundColor: colors.surface,
+    },
+    aiHeadingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    aiTitle: { color: colors.text, fontSize: 16, fontWeight: "800", flexShrink: 1 },
+    aiDescription: { color: colors.secondaryText, fontSize: 12, lineHeight: 18, marginTop: 8 },
+    aiFieldLabel: { color: colors.text, fontSize: 13, fontWeight: "700", marginTop: 18, marginBottom: 9 },
+    importanceRow: { flexDirection: "row", gap: 8 },
+    importanceButton: { flex: 1, minHeight: 43, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border, borderRadius: 11 },
+    importanceButtonSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
+    importanceButtonText: { color: colors.text, fontWeight: "700" },
+    importanceButtonTextSelected: { color: "#FFFFFF" },
+    durationRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    durationButton: { flexGrow: 1, minWidth: "20%", minHeight: 42, paddingHorizontal: 8, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border, borderRadius: 11 },
+    durationButtonSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
+    durationButtonText: { color: colors.text, fontSize: 12, fontWeight: "700" },
+    durationButtonTextSelected: { color: "#FFFFFF" },
+    aiResult: { marginTop: 18, padding: 12, borderRadius: 12, backgroundColor: colors.primaryLight },
+    aiResultTitle: { color: colors.text, fontSize: 14, fontWeight: "800" },
+    aiResultDetail: { color: colors.secondaryText, fontSize: 12, marginTop: 5 },
+    aiApplyButton: { alignSelf: "flex-start", backgroundColor: colors.primary, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, marginTop: 12 },
+    aiApplyButtonText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800" },
+    aiHint: { color: colors.secondaryText, fontSize: 12, marginTop: 16 },
     headerTaskListButton: {
         width: 44,
         height: 44,

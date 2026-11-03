@@ -15,7 +15,7 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native";
-
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { auth } from "../../firebase/firebaseConfig";
@@ -32,7 +32,7 @@ import { Theme } from "../../constants/theme";
 export default function NotesScreen() {
   const { colors } = useAppTheme();
   const styles = React.useMemo(() => make_styles(colors), [colors]);
-
+  const router = useRouter();
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -272,6 +272,31 @@ export default function NotesScreen() {
       ===================================== */}
 
       <View style={styles.header}>
+        <TouchableOpacity
+  onPress={() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/(tabs)/dashboard");
+    }
+  }}
+  activeOpacity={0.7}
+  accessibilityRole="button"
+  accessibilityLabel="Go back"
+  style={{
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "#B7D4B1",
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  }}
+>
+  <Ionicons name="arrow-back" size={23} color="#4D6D4F" />
+</TouchableOpacity>
         <View>
           <Text style={styles.heading}>
             My Notes
@@ -440,7 +465,7 @@ export default function NotesScreen() {
                 style={[
                   styles.saveButton,
                   saving &&
-                    styles.disabledButton,
+                  styles.disabledButton,
                 ]}
                 onPress={handleSave}
                 disabled={saving}
@@ -496,7 +521,7 @@ const make_styles = (colors) => StyleSheet.create({
   },
 
   heading: {
-    fontSize: 28,
+    fontSize: 25,
     fontWeight: "700",
     color: colors.text,
   },
