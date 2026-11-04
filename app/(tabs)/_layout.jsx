@@ -1,9 +1,11 @@
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import {
   Animated,
   Easing,
+  Keyboard,
+  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -100,7 +102,6 @@ function AnimatedTab({
     outputRange: [0, 0, 1],
   });
 
-  // Collapse the label vertically so inactive icons remain centered.
   const labelHeight = progress.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 14],
@@ -228,6 +229,36 @@ function CustomTabBar({ state, navigation }) {
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
 
+  // Hide floating tabs when the keyboard opens.
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+
+  useEffect(() => {
+    const showEvent =
+      Platform.OS === "ios"
+        ? "keyboardWillShow"
+        : "keyboardDidShow";
+
+    const hideEvent =
+      Platform.OS === "ios"
+        ? "keyboardWillHide"
+        : "keyboardDidHide";
+
+    const showSubscription = Keyboard.addListener(
+      showEvent,
+      () => setKeyboardOpen(true)
+    );
+
+    const hideSubscription = Keyboard.addListener(
+      hideEvent,
+      () => setKeyboardOpen(false)
+    );
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
   const palette = {
     background: colors.background,
 
@@ -236,7 +267,6 @@ function CustomTabBar({ state, navigation }) {
       : "#2C2C2C",
 
     activeBackground: "#A8CBA0",
-
     activeIcon: "#1B3A1A",
     activeText: "#1B3A1A",
 
@@ -249,8 +279,6 @@ function CustomTabBar({ state, navigation }) {
       : "transparent",
   };
 
-  // The bar has 10px margins on each side,
-  // 8px padding on each side, and 1px borders.
   const availableWidth = Math.max(
     250,
     screenWidth - 38
@@ -309,6 +337,12 @@ function CustomTabBar({ state, navigation }) {
     );
   };
 
+  // Returning null removes the floating bar entirely.
+  // It will reappear when the keyboard closes.
+  if (keyboardOpen) {
+    return null;
+  }
+
   return (
     <View
       pointerEvents="box-none"
@@ -356,7 +390,6 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          position: "absolute",
           backgroundColor: "transparent",
           borderTopWidth: 0,
           elevation: 0,
@@ -383,8 +416,6 @@ export default function TabsLayout() {
         options={{ title: "Profile" }}
       />
 
-      {/* Keep these screens accessible through
-          shortcuts, but hide them from the tab bar. */}
       <Tabs.Screen
         name="tasks"
         options={{
@@ -410,11 +441,8 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   container: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-
+    // Stay in the tab navigator's layout so screens reserve this space.
+    // The bar still looks floating because its container is transparent.
     paddingTop: 16,
     paddingHorizontal: 10,
 
@@ -497,7 +525,6 @@ const styles = StyleSheet.create({
     width: 66,
     height: 66,
     borderRadius: 33,
-
     borderWidth: 5,
 
     alignItems: "center",
@@ -510,7 +537,6 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.22,
     shadowRadius: 6,
-
     elevation: 8,
   },
 });

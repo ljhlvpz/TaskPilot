@@ -28,8 +28,8 @@ import {
     useRouter,
 } from "expo-router";
 
-// Show all 92 saving frames at approximately 30 FPS before success.
-const MIN_SAVING_DURATION_MS = 3200;
+// Keep the saving overlay brief while still waiting for the actual save.
+const MIN_SAVING_DURATION_MS = 900;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const CATEGORIES = [
@@ -94,7 +94,6 @@ export default function CreateTask() {
     const [showTimePicker, setShowTimePicker] = useState(false);
     const [saving, setSaving] = useState(false);
     const [animationPhase, setAnimationPhase] = useState("idle");
-    const [successMessage, setSuccessMessage] = useState("");
 
     useEffect(() => {
         if (!params.dueDate) {
@@ -287,13 +286,6 @@ export default function CreateTask() {
                 taskData.dueDate && taskData.dueTime
             );
 
-            setSuccessMessage(
-                reminderScheduled
-                    ? "Your task was saved and its reminder is scheduled."
-                    : hasSchedule
-                        ? "Your task was saved, but no reminder was scheduled. Check your notification permissions and reminder time."
-                        : "Your new task is ready."
-            );
             // Give the PNG saving sequence time to animate, even when
             // Firebase and notification scheduling finish very quickly.
             const elapsed = Date.now() - savingStartedAt;
@@ -317,9 +309,7 @@ export default function CreateTask() {
 
     const handleSuccessFinished = () => {
         setAnimationPhase("idle");
-        Alert.alert("Task added!", successMessage, [
-            { text: "Great", onPress: () => router.back() },
-        ]);
+        router.replace("/(tabs)/tasks");
     };
 
     return (

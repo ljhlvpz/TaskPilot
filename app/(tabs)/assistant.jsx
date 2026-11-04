@@ -681,46 +681,6 @@ const parseMoveTaskCommand = (message) => {
 };
 export default function AssistantScreen() {
     
-    // The tab bar floats over this screen. Track Android's *actual* resize
-    // so we only compensate for the portion of the keyboard that overlaps it.
-    const [keyboardVisible, setKeyboardVisible] = useState(false);
-    const [keyboardHeight, setKeyboardHeight] = useState(0);
-    const [screenHeight, setScreenHeight] = useState(0);
-    const expandedHeightRef = useRef(0);
-    const keyboardVisibleRef = useRef(false);
-
-    useEffect(() => {
-        const showSubscription = Keyboard.addListener("keyboardDidShow", (event) => {
-            keyboardVisibleRef.current = true;
-            setKeyboardVisible(true);
-            setKeyboardHeight(event.endCoordinates?.height || 0);
-        });
-        const hideSubscription = Keyboard.addListener("keyboardDidHide", () => {
-            keyboardVisibleRef.current = false;
-            setKeyboardVisible(false);
-            setKeyboardHeight(0);
-        });
-        return () => {
-            showSubscription.remove();
-            hideSubscription.remove();
-        };
-    }, []);
-
-    const handleScreenLayout = (event) => {
-        const height = event.nativeEvent.layout.height;
-        setScreenHeight((previous) => previous === height ? previous : height);
-        if (!keyboardVisibleRef.current) {
-            expandedHeightRef.current = Math.max(expandedHeightRef.current, height);
-        }
-    };
-
-    // In resize mode the window may already shrink by the keyboard height.
-    // Only add compensation for the remaining overlap; never double-offset it.
-    const nativeResizeAmount = Math.max(0, expandedHeightRef.current - screenHeight);
-    const keyboardOverlap = Platform.OS === "android" && keyboardVisible
-        ? Math.max(0, keyboardHeight - nativeResizeAmount)
-        : 0;
-    const bottomNavSpacing = 82;
 
     const { colors } = useAppTheme();
     const styles = React.useMemo(() => make_styles(colors), [colors]);
@@ -1858,16 +1818,10 @@ export default function AssistantScreen() {
         <SafeAreaView
             style={styles.safeArea}
             edges={["top"]}
-            onLayout={handleScreenLayout}
         >
             <KeyboardAvoidingView
-                style={[
-                    styles.container,
-                    Platform.OS === "android" && keyboardOverlap > 0
-                        ? { paddingBottom: keyboardOverlap }
-                        : null,
-                ]}
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                style={styles.container}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
                 keyboardVerticalOffset={Platform.OS === "ios" ? 82 : 0}
             >
                 <View style={styles.header}>
@@ -2210,14 +2164,7 @@ export default function AssistantScreen() {
                         </View>
                     </View>
                 )}
-                <View
-                    style={[
-                        styles.inputSection,
-                        {
-                            marginBottom: keyboardVisible ? 0 : bottomNavSpacing,
-                        },
-                    ]}
-                >
+                <View style={styles.inputSection}>
                     <View style={styles.inputContainer}>
                         <TouchableOpacity
                             style={[

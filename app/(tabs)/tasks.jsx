@@ -25,6 +25,8 @@ import {
 import {
   listenToUserTasks,
   changeTaskCompletion,
+  removeUserTask,
+  fetchTaskById,
 } from "../../services/taskService";
 
 const FILTERS = ["All", "Active", "Completed"];
@@ -40,6 +42,10 @@ export default function Tasks() {
   const [loading, setLoading] = useState(true);
   const [updatingTaskId, setUpdatingTaskId] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState("");
 
   useEffect(() => {
     let unsubscribeTasks = () => { };
@@ -47,6 +53,8 @@ export default function Tasks() {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       unsubscribeTasks();
 
+      setSelectionMode(false);
+      setSelectedIds([]);
       if (!user) {
         setTasks([]);
         setLoading(false);
@@ -100,11 +108,121 @@ export default function Tasks() {
     });
   }, [tasks, searchText, selectedFilter]);
 
+  // Selection follows the visible search/filter results, not hidden tasks.
+  const visibleIds = filteredTasks.map((task) => String(task.id));
+  const selectedVisibleCount = visibleIds.filter((id) => selectedIds.includes(id)).length;
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
+  const selectedTasks = tasks.filter((task) => selectedIds.includes(String(task.id)));
+
+  useEffect(() => {
+    const existing = new Set(tasks.map((task) => String(task.id)));
+    setSelectedIds((ids) => ids.filter((id) => existing.has(id)));
+  }, [tasks]);
+
+  const exitSelection = () => {
+    if (bulkBusy) return;
+    setSelectionMode(false);
+    setSelectedIds([]);
+  };
+
+  const toggleSelected = (taskId) => {
+    if (bulkBusy) return;
+    const id = String(taskId);
+    setSelectedIds((ids) =>
+      ids.includes(id) ? ids.filter((entry) => entry !== id) : [...ids, id]
+    );
+  };
+
+  const toggleSelectVisible = () => {
+    if (bulkBusy) return;
+    setSelectedIds((ids) => {
+      if (allVisibleSelected) return ids.filter((id) => !visibleIds.includes(id));
+      return [...new Set([...ids, ...visibleIds])];
+    });
+  };
+
+  const runBulkAction = async (action) => {
+    if (bulkBusy || selectedTasks.length === 0) return;
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      Alert.alert("Session expired", "Please sign in again.");
+      return;
+    }
+    setBulkBusy(true);
+    let succeeded = 0;
+    const failures = [];
+    const reminderFailures = [];
+    const completedIds = [];
+    const work = [...selectedTasks];
+
+    try {
+      for (let index = 0; index < work.length; index++) {
+        const task = work[index];
+        setBulkProgress(`${action === "delete" ? "Deleting" : "Completing"} ${index + 1} of ${work.length}...`);
+        try {
+          if (auth.currentUser?.uid !== uid) throw new Error("Account changed");
+          // Verify document ownership before writing. Firestore rules must ALSO enforce ownership.
+          const latest = await fetchTaskById(task.id);
+          if (!latest || latest.userId !== uid) throw new Error("Task is no longer accessible");
+          if (action === "delete") {
+            await removeUserTask(task.id);
+          } else if (!latest.completed) {
+            await changeTaskCompletion(task.id, true);
+          }
+          succeeded++;
+          completedIds.push(String(task.id));
+          try {
+            await cancelTaskReminder(task.id, uid);
+          } catch (notificationError) {
+            console.warn("Reminder cancellation failed:", task.id, notificationError);
+            reminderFailures.push(task.title || task.id);
+          }
+        } catch (error) {
+          console.error("Bulk task operation failed:", task.id, error);
+          failures.push(task.title || task.id);
+          if (auth.currentUser?.uid !== uid) break;
+        }
+      }
+    } finally {
+      setBulkBusy(false);
+      setBulkProgress("");
+      setSelectedIds((ids) => ids.filter((id) => !completedIds.includes(id)));
+      if (failures.length === 0 && auth.currentUser?.uid === uid) {
+        setSelectionMode(false);
+      }
+    }
+
+    const verb = action === "delete" ? "deleted" : "marked complete";
+    const message = `${succeeded} of ${work.length} task(s) ${verb}.` +
+      (failures.length ? ` ${failures.length} failed; they remain selected for retry.` : "") +
+      (reminderFailures.length ? ` ${reminderFailures.length} reminder(s) could not be canceled.` : "");
+    Alert.alert(failures.length || reminderFailures.length ? "Partially completed" : "Success", message);
+  };
+
+  const confirmBulkAction = (action) => {
+    if (selectedTasks.length === 0 || bulkBusy) return;
+    const count = selectedTasks.length;
+    Alert.alert(
+      action === "delete" ? "Delete selected tasks?" : "Mark selected tasks complete?",
+      action === "delete"
+        ? `Permanently delete ${count} selected task(s)? This cannot be undone.`
+        : `Mark ${count} selected task(s) as complete?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: action === "delete" ? "Delete" : "Mark Complete",
+          style: action === "delete" ? "destructive" : "default",
+          onPress: () => { void runBulkAction(action); },
+        },
+      ]
+    );
+  };
+
   const activeTaskCount = tasks.filter((task) => !task.completed).length;
   const completedTaskCount = tasks.filter((task) => task.completed).length;
 
   const handleToggleTask = async (task) => {
-    if (updatingTaskId) {
+    if (updatingTaskId || bulkBusy || selectionMode) {
       return;
     }
 
@@ -158,12 +276,18 @@ export default function Tasks() {
       <TaskCard
         task={item}
         updating={updatingTaskId === item.id}
+        selectionMode={selectionMode}
+        selected={selectedIds.includes(String(item.id))}
+        disabled={bulkBusy}
+        onSelect={() => toggleSelected(item.id)}
         onToggle={() => handleToggleTask(item)}
         onOpen={() =>
-          router.push({
-            pathname: "/task/[id]",
-            params: { id: item.id },
-          })
+          selectionMode
+            ? toggleSelected(item.id)
+            : router.push({
+                pathname: "/task/[id]",
+                params: { id: item.id },
+              })
         }
       />
     );
@@ -184,6 +308,7 @@ export default function Tasks() {
           <TouchableOpacity
             style={styles.headerAddButton}
             onPress={() => router.push("/create-task")}
+            disabled={bulkBusy}
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel="Add task"
@@ -277,6 +402,45 @@ export default function Tasks() {
           })}
         </View>
 
+        <View style={styles.bulkHeader}>
+          <TouchableOpacity
+            onPress={() => selectionMode ? exitSelection() : setSelectionMode(true)}
+            disabled={bulkBusy || loading}
+            style={styles.bulkModeButton}
+            accessibilityRole="button"
+          >
+            <Ionicons name={selectionMode ? "close-outline" : "checkbox-outline"} size={19} color={colors.primary} />
+            <Text style={styles.bulkModeText}>{selectionMode ? "Cancel selection" : "Select tasks"}</Text>
+          </TouchableOpacity>
+          {selectionMode && (
+            <TouchableOpacity onPress={toggleSelectVisible} disabled={bulkBusy || visibleIds.length === 0}>
+              <Text style={styles.bulkModeText}>{allVisibleSelected ? "Deselect visible" : "Select visible"}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        {selectionMode && (
+          <View style={styles.bulkActions}>
+            <Text style={styles.bulkCount}>{selectedIds.length} selected</Text>
+            <TouchableOpacity
+              style={[styles.bulkActionButton, { backgroundColor: colors.primary }, (bulkBusy || selectedIds.length === 0) && { opacity: 0.45 }]}
+              disabled={bulkBusy || selectedIds.length === 0}
+              onPress={() => confirmBulkAction("complete")}
+            >
+              <Ionicons name="checkmark-done-outline" size={17} color="#FFFFFF" />
+              <Text style={styles.bulkActionText}>Complete</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.bulkActionButton, { backgroundColor: colors.error || "#B42318" }, (bulkBusy || selectedIds.length === 0) && { opacity: 0.45 }]}
+              disabled={bulkBusy || selectedIds.length === 0}
+              onPress={() => confirmBulkAction("delete")}
+            >
+              <Ionicons name="trash-outline" size={17} color="#FFFFFF" />
+              <Text style={styles.bulkActionText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {bulkBusy && <View style={styles.bulkProgress}><ActivityIndicator color={colors.primary} /><Text style={styles.bulkCount}>{bulkProgress}</Text></View>}
+
         {loading ? (
           <View style={styles.centerContent}>
             <ActivityIndicator
@@ -346,7 +510,7 @@ function SummaryItem({ icon, value, label }) {
   );
 }
 
-function TaskCard({ task, updating, onToggle, onOpen }) {
+function TaskCard({ task, updating, onToggle, onOpen, selectionMode, selected, onSelect, disabled }) {
   const { colors } = useAppTheme();
   const styles = React.useMemo(() => make_styles(colors), [colors]);
 
@@ -363,18 +527,19 @@ function TaskCard({ task, updating, onToggle, onOpen }) {
     <TouchableOpacity
       style={styles.taskCard}
       onPress={onOpen}
+      disabled={disabled}
       activeOpacity={0.8}
     >
       <TouchableOpacity
         style={[
           styles.checkbox,
-          task.completed && styles.checkboxCompleted,
+          (selectionMode ? selected : task.completed) && styles.checkboxCompleted,
         ]}
         onPress={(event) => {
           event.stopPropagation();
-          onToggle();
+          selectionMode ? onSelect() : onToggle();
         }}
-        disabled={updating}
+        disabled={updating || disabled}
         activeOpacity={0.7}
       >
         {updating ? (
@@ -382,7 +547,7 @@ function TaskCard({ task, updating, onToggle, onOpen }) {
             size="small"
             color={task.completed ? "#FFFFFF" : colors.primary}
           />
-        ) : task.completed ? (
+        ) : (selectionMode ? selected : task.completed) ? (
           <Ionicons name="checkmark" size={17} color="#FFFFFF" />
         ) : null}
       </TouchableOpacity>
@@ -449,9 +614,9 @@ function TaskCard({ task, updating, onToggle, onOpen }) {
       </View>
 
       <Ionicons
-        name="chevron-forward"
+        name={selectionMode ? (selected ? "checkmark-circle" : "ellipse-outline") : "chevron-forward"}
         size={20}
-        color={colors.secondaryText}
+        color={selectionMode && selected ? colors.primary : colors.secondaryText}
       />
     </TouchableOpacity>
   );
@@ -524,6 +689,15 @@ function getCategoryIcon(category) {
 }
 
 const make_styles = (colors) => StyleSheet.create({
+  bulkHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  bulkModeButton: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 7 },
+  bulkModeText: { fontSize: 13, fontWeight: "700", color: colors.primary },
+  bulkActions: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+  bulkCount: { flex: 1, fontSize: 12, color: colors.secondaryText },
+  bulkActionButton: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 },
+  bulkActionText: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
+  bulkProgress: { flexDirection: "row", alignItems: "center", gap: 10, paddingBottom: 10 },
+
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,

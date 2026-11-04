@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  ImageBackground,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -163,8 +164,7 @@ export default function Login() {
 
       Alert.alert(
         "Google Sign-In Failed",
-        `Code: ${error.code || "unknown"}\n${
-          error.message || "Please try again."
+        `Code: ${error.code || "unknown"}\n${error.message || "Please try again."
         }`
       );
     } finally {
@@ -220,13 +220,18 @@ export default function Login() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.topArea}>
+          <ImageBackground
+            source={require("../../assets/login-pattern.png")}
+            style={styles.topArea}
+            imageStyle={styles.topPattern}
+            resizeMode="repeat"
+          >
             <Image
               source={require("../../assets/TaskPilot Text.png")}
               style={styles.logo}
               resizeMode="contain"
             />
-          </View>
+          </ImageBackground>
 
           <View style={styles.panel}>
             <Text style={styles.title}>
@@ -373,6 +378,10 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
     paddingTop: 55,
   },
+  topPattern: {
+  opacity: 0.32,
+  transform: [{ scale: 1.35 }],
+},
   logo: {
     width: 290,
     height: 115,
