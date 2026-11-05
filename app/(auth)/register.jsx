@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
     paddingTop: 45,
   },
   topPattern: {
-  opacity: 0.32,
+  opacity: 0.40,
   transform: [{ scale: 1.35 }],
 },
   logo: {

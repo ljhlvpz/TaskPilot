@@ -1,6 +1,6 @@
-
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import { auth } from "../firebase/firebaseConfig";
 import { predictTaskPriority } from "./priorityService";
 
 const CHANNEL_ID = "task-reminders";
@@ -14,6 +14,38 @@ const OFFSETS = [
 ];
 
 const DAY_SUMMARY_HORIZON = 7;
+const OWNED_TYPES = new Set(["task-reminder", "daily-summary"]);
+let notificationGeneration = 0;
+let syncQueue = Promise.resolve();
+const isCurrentAccount = (uid, generation) =>
+  Boolean(uid && auth.currentUser?.uid === uid && generation === notificationGeneration);
+
+// Remove only TaskPilot's account-scoped notifications, not other apps' alerts.
+async function removeAccountNotifications(keepUid = null) {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  for (const item of scheduled) {
+    const data = item.content?.data || {};
+    if (OWNED_TYPES.has(data.type) && data.userId && data.userId !== keepUid) {
+      await Notifications.cancelScheduledNotificationAsync(item.identifier);
+    }
+  }
+  const presented = await Notifications.getPresentedNotificationsAsync();
+  for (const item of presented) {
+    const data = item.request?.content?.data || {};
+    if (OWNED_TYPES.has(data.type) && data.userId && data.userId !== keepUid) {
+      await Notifications.dismissNotificationAsync(item.request.identifier);
+    }
+  }
+}
+
+// Called BEFORE Firebase signOut. Invalidate queued work, wait for in-flight work,
+// then remove all account-scoped reminders and summaries from this device.
+export async function clearNotificationsForLogout() {
+  notificationGeneration += 1;
+  await syncQueue.catch(() => {});
+  await removeAccountNotifications(null);
+}
+
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -155,8 +187,10 @@ function getAIPriority(task) {
   }
 }
 
-async function scheduleAt(content, date) {
-  return Notifications.scheduleNotificationAsync({
+async function scheduleAt(content, date, generation = notificationGeneration) {
+  const uid = content?.data?.userId;
+  if (!isCurrentAccount(uid, generation)) return null;
+  const id = await Notifications.scheduleNotificationAsync({
     content: {
       ...content,
       sound: "default",
@@ -172,6 +206,12 @@ async function scheduleAt(content, date) {
         : {}),
     },
   });
+  // If logout occurred while Android was scheduling, immediately undo the new entry.
+  if (!isCurrentAccount(uid, generation)) {
+    await Notifications.cancelScheduledNotificationAsync(id);
+    return null;
+  }
+  return id;
 }
 
 export async function cancelTaskReminder(taskId, userId) {
@@ -202,13 +242,16 @@ export async function cancelTaskReminder(taskId, userId) {
 export async function scheduleTaskReminder(
   userId,
   taskId,
-  task
+  task,
+  generation = notificationGeneration
 ) {
+  if (!isCurrentAccount(userId, generation)) return [];
   if (!userId || !taskId) {
     throw new Error("User ID and task ID are required.");
   }
 
   await cancelTaskReminder(taskId, userId);
+  if (!isCurrentAccount(userId, generation)) return [];
 
   if (
     task.completed ||
@@ -227,7 +270,7 @@ export async function scheduleTaskReminder(
     return [];
   }
 
-  if (!(await initializeNotifications())) {
+  if (!(await initializeNotifications()) || !isCurrentAccount(userId, generation)) {
     return [];
   }
 
@@ -237,6 +280,7 @@ export async function scheduleTaskReminder(
   const ids = [];
 
   for (const { minutes, label } of OFFSETS) {
+    if (!isCurrentAccount(userId, generation)) break;
     const when = new Date(
       dueAt.getTime() - minutes * 60000
     );
@@ -276,10 +320,11 @@ export async function scheduleTaskReminder(
             : {}),
         },
       },
-      when
+      when,
+      generation
     );
 
-    ids.push(id);
+    if (id) ids.push(id);
   }
 
   return ids;
@@ -289,9 +334,10 @@ export async function scheduleTaskReminder(
 // These are refreshed when TaskPilot syncs its task data.
 export async function scheduleDailySummaries(
   userId,
-  tasks = []
+  tasks = [],
+  generation = notificationGeneration
 ) {
-  if (!userId) return [];
+  if (!isCurrentAccount(userId, generation)) return [];
 
   const scheduled =
     await Notifications.getAllScheduledNotificationsAsync();
@@ -309,8 +355,9 @@ export async function scheduleDailySummaries(
       )
     )
   );
+  if (!isCurrentAccount(userId, generation)) return [];
 
-  if (!(await initializeNotifications())) {
+  if (!(await initializeNotifications()) || !isCurrentAccount(userId, generation)) {
     return [];
   }
 
@@ -322,6 +369,7 @@ export async function scheduleDailySummaries(
     offset <= DAY_SUMMARY_HORIZON;
     offset++
   ) {
+    if (!isCurrentAccount(userId, generation)) break;
     const midnight = new Date(
       now.getFullYear(),
       now.getMonth(),
@@ -356,8 +404,7 @@ export async function scheduleDailySummaries(
         } today: ${names}${extra}.`
       : "You have no pending tasks scheduled for today.";
 
-    ids.push(
-      await scheduleAt(
+    const id = await scheduleAt(
         {
           title: "TaskPilot: Today's Schedule 📅",
           body,
@@ -367,9 +414,10 @@ export async function scheduleDailySummaries(
             date: dateKey,
           },
         },
-        midnight
-      )
-    );
+        midnight,
+        generation
+      );
+    if (id) ids.push(id);
   }
 
   return ids;
@@ -377,14 +425,17 @@ export async function scheduleDailySummaries(
 
 // Reconcile local notifications with the latest Firestore tasks.
 // Call this from one authenticated task listener.
-let syncQueue = Promise.resolve();
 
 export function syncTaskNotifications(
   userId,
   tasks = []
 ) {
+  const generation = notificationGeneration;
   const run = async () => {
-    if (!userId) return;
+    if (!isCurrentAccount(userId, generation)) return;
+    // Remove pending/presented reminders belonging to previously used accounts.
+    await removeAccountNotifications(userId);
+    if (!isCurrentAccount(userId, generation)) return;
 
     const scheduled =
       await Notifications.getAllScheduledNotificationsAsync();
@@ -427,16 +478,14 @@ export function syncTaskNotifications(
 
     // Recreate each task's reminders so edits are reflected.
     for (const task of tasks) {
+      if (!isCurrentAccount(userId, generation)) return;
       if (task.id) {
-        await scheduleTaskReminder(
-          userId,
-          taskKey(task),
-          task
-        );
+        await scheduleTaskReminder(userId, taskKey(task), task, generation);
       }
     }
 
-    await scheduleDailySummaries(userId, tasks);
+    if (!isCurrentAccount(userId, generation)) return;
+    await scheduleDailySummaries(userId, tasks, generation);
   };
 
   syncQueue = syncQueue

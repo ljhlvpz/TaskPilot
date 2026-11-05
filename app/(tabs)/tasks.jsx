@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
+import { registerTaskListener } from "../../services/taskListenerRegistry";
 
 import { Theme } from "../../constants/theme";
 import { auth } from "../../firebase/firebaseConfig";
@@ -48,42 +49,48 @@ export default function Tasks() {
   const [bulkProgress, setBulkProgress] = useState("");
 
   useEffect(() => {
-    let unsubscribeTasks = () => { };
+    let unsubscribeTasks = () => {};
+    let generation = 0;
+    let mounted = true;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      generation += 1;
+      const currentGeneration = generation;
       unsubscribeTasks();
+      unsubscribeTasks = () => {};
 
       setSelectionMode(false);
       setSelectedIds([]);
+      setTasks([]);
+      setErrorMessage("");
+
       if (!user) {
-        setTasks([]);
         setLoading(false);
         setErrorMessage("Please sign in to view your tasks.");
         return;
       }
 
       setLoading(true);
-      setErrorMessage("");
-
-      unsubscribeTasks = listenToUserTasks(
-        user.uid,
+      const uid = user.uid;
+      unsubscribeTasks = registerTaskListener(listenToUserTasks(
+        uid,
         (receivedTasks) => {
+          if (!mounted || generation !== currentGeneration || auth.currentUser?.uid !== uid) return;
           setTasks(receivedTasks);
           setLoading(false);
         },
         (error) => {
+          if (!mounted || generation !== currentGeneration || auth.currentUser?.uid !== uid) return;
           console.error("Unable to load tasks:", error);
-
-          setErrorMessage(
-            "We couldn't load your tasks. Please check your connection."
-          );
-
+          setErrorMessage("We couldn't load your tasks. Please check your connection.");
           setLoading(false);
         }
-      );
+      ));
     });
 
     return () => {
+      mounted = false;
+      generation += 1;
       unsubscribeTasks();
       unsubscribeAuth();
     };
