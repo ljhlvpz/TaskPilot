@@ -477,7 +477,7 @@ export default function PinGate({ children }) {
                     <>
                       <TextInput
                         style={[styles.passwordInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
-                        placeholder="Firebase account password"
+                        placeholder="TaskPilot account password"
                         placeholderTextColor={mutedColor}
                         secureTextEntry
                         autoCapitalize="none"

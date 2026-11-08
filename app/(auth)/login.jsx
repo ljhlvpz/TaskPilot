@@ -236,9 +236,9 @@ export default function Login() {
           <View style={styles.panel}>
             <Text style={styles.title}>
               <Text style={{ color: COLORS.lightGreen }}>
-                Welcome
+                Welcome!
               </Text>{" "}
-              Back
+              
             </Text>
 
             <Text style={styles.subtitle}>

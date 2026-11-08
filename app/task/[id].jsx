@@ -238,9 +238,9 @@ export default function TaskDetails() {
       // A cleanup failure must not undo the deletion.
       try {
         await clearDeletedTaskNotifications(
-  currentUser.uid,
-  task.id
-);
+          currentUser.uid,
+          task.id
+        );
       } catch (inboxError) {
         console.warn(
           "Delete task inbox cleanup error:",
@@ -495,7 +495,7 @@ export default function TaskDetails() {
 
             <Text style={styles.taskStatus}>
               {task.completed
-                ? "Completed â€” great work!"
+                ? "Completed, great work!"
                 : "Active task"}
             </Text>
           </View>
