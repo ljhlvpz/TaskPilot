@@ -90,6 +90,14 @@ export default function CreateTask() {
 
     const params = useLocalSearchParams();
 
+    // Quick Add passes a draft title; the existing form remains responsible for saving.
+    useEffect(() => {
+        const draft = Array.isArray(params.quickTitle) ? params.quickTitle[0] : params.quickTitle;
+        if (typeof draft === "string" && draft.trim()) {
+            setTitle(draft.trim().slice(0, 100));
+        }
+    }, [params.quickTitle]);
+
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
     const [saving, setSaving] = useState(false);

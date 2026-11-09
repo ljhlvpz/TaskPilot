@@ -1,4 +1,3 @@
-
 module.exports = ({ config }) => ({
   ...config,
   android: {
@@ -7,4 +6,8 @@ module.exports = ({ config }) => ({
       process.env.GOOGLE_SERVICES_JSON ||
       "./android/app/google-services.json",
   },
+  plugins: [
+    ...(config.plugins || []),
+    "./plugins/withTaskPilotWidget",
+  ],
 });
